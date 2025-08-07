@@ -1,17 +1,31 @@
 {{- if .Values.ingress.enabled -}}
+{{- $fullName := include "kasm.fullname" . -}}
+{{- $namespace := include "kasm.namespace" . -}}
+{{- $svcPort := 80 -}}
+{{- if and .Values.ingress.className (not (hasKey .Values.ingress.annotations "kubernetes.io/ingress.class")) }}
+  {{- $_ := set .Values.ingress.annotations "kubernetes.io/ingress.class" .Values.ingress.className}}
+{{- end }}
+{{- if semverCompare ">=1.19-0" .Capabilities.KubeVersion.GitVersion -}}
 apiVersion: networking.k8s.io/v1
+{{- else if semverCompare ">=1.14-0" .Capabilities.KubeVersion.GitVersion -}}
+apiVersion: networking.k8s.io/v1beta1
+{{- else -}}
+apiVersion: extensions/v1beta1
+{{- end }}
 kind: Ingress
 metadata:
-  name: {{ include "kasm.fullname" . }}
+  name: {{ $fullName }}
+  namespace: {{ $namespace }}
   labels:
-    {{- include "kasm.labels" . | nindent 4 }}
+    {{- include "kasm.commonLabels" . | nindent 4 }}
+    {{- include "kasm.componentLabels" "ingress" | nindent 4 }}
   {{- with .Values.ingress.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
   {{- end }}
 spec:
-  {{- with .Values.ingress.className }}
-  ingressClassName: {{ . }}
+  {{- if and .Values.ingress.className (semverCompare ">=1.18-0" .Capabilities.KubeVersion.GitVersion) }}
+  ingressClassName: {{ .Values.ingress.className }}
   {{- end }}
   {{- if .Values.ingress.tls }}
   tls:
@@ -22,6 +36,14 @@ spec:
         {{- end }}
       secretName: {{ .secretName }}
     {{- end }}
+  {{- else if or .Values.global.hostname .Values.certificates.ingress.create .Values.certificates.ingress.existingSecret }}
+  tls:
+    - hosts:
+        - {{ .Values.global.hostname | default "chart-example.local" | quote }}
+        {{- range .Values.global.altHostnames }}
+        - {{ . | quote }}
+        {{- end }}
+      secretName: {{ include "kasm.certificateSecret" (dict "service" "ingress" "context" .) }}
   {{- end }}
   rules:
     {{- range .Values.ingress.hosts }}
@@ -30,14 +52,38 @@ spec:
         paths:
           {{- range .paths }}
           - path: {{ .path }}
-            {{- with .pathType }}
-            pathType: {{ . }}
+            {{- if and .pathType (semverCompare ">=1.18-0" $.Capabilities.KubeVersion.GitVersion) }}
+            pathType: {{ .pathType }}
             {{- end }}
             backend:
+              {{- if semverCompare ">=1.19-0" $.Capabilities.KubeVersion.GitVersion }}
               service:
-                name: {{ include "kasm.fullname" $ }}
+                name: {{ $fullName }}-proxy
                 port:
-                  number: {{ $.Values.service.port }}
+                  number: {{ $svcPort }}
+              {{- else }}
+              serviceName: {{ $fullName }}-proxy
+              servicePort: {{ $svcPort }}
+              {{- end }}
           {{- end }}
+    {{- end }}
+    {{- if .Values.global.hostname }}
+    - host: {{ .Values.global.hostname | quote }}
+      http:
+        paths:
+          - path: /
+            {{- if semverCompare ">=1.18-0" .Capabilities.KubeVersion.GitVersion }}
+            pathType: Prefix
+            {{- end }}
+            backend:
+              {{- if semverCompare ">=1.19-0" .Capabilities.KubeVersion.GitVersion }}
+              service:
+                name: {{ $fullName }}-proxy
+                port:
+                  number: {{ $svcPort }}
+              {{- else }}
+              serviceName: {{ $fullName }}-proxy
+              servicePort: {{ $svcPort }}
+              {{- end }}
     {{- end }}
 {{- end }}

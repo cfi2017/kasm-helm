@@ -151,9 +151,9 @@ Get certificate secret name for a service
 {{- if $certConfig.existingSecret }}
 {{- $certConfig.existingSecret }}
 {{- else if $context.Values.certificates.certManager.enabled }}
-{{- printf "%s-%s-tls" (include "kasm.fullname" $context) $service }}
+{{- printf "%s-%s-tls" (include "kasm.fullname" $context) ($service | lower | replace "gateway" "gw") }}
 {{- else }}
-{{- printf "%s-%s-cert" (include "kasm.fullname" $context) $service }}
+{{- printf "%s-%s-cert" (include "kasm.fullname" $context) ($service | lower | replace "gateway" "gw") }}
 {{- end }}
 {{- end }}
 

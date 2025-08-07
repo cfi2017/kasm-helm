@@ -1,0 +1,194 @@
+{{- if .Values.services.guac.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "kasm.fullname" . }}-guac
+  namespace: {{ include "kasm.namespace" . }}
+  labels:
+    {{- include "kasm.commonLabels" . | nindent 4 }}
+    {{- include "kasm.componentLabels" "guac" | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - port: 4822
+      targetPort: guac
+      protocol: TCP
+      name: guac
+  selector:
+    {{- include "kasm.selectorLabels" . | nindent 4 }}
+    kasm.app/component: guac
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "kasm.fullname" . }}-guac
+  namespace: {{ include "kasm.namespace" . }}
+  labels:
+    {{- include "kasm.commonLabels" . | nindent 4 }}
+    {{- include "kasm.componentLabels" "guac" | nindent 4 }}
+spec:
+  replicas: {{ include "kasm.replicas" (dict "component" "guac" "context" .) }}
+  selector:
+    matchLabels:
+      {{- include "kasm.selectorLabels" . | nindent 6 }}
+      kasm.app/component: guac
+  template:
+    metadata:
+      labels:
+        {{- include "kasm.commonLabels" . | nindent 8 }}
+        {{- include "kasm.componentLabels" "guac" | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      {{- include "kasm.imagePullSecrets" . | nindent 6 }}
+      serviceAccountName: {{ include "kasm.serviceAccountName" . }}
+      {{- if .Values.kasm.applyHardening }}
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- end }}
+      initContainers:
+        - name: wait-for-services
+          image: busybox:1.35
+          command: ['sh', '/scripts/wait-for-services.sh']
+          env:
+            - name: DATABASE_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "kasm.fullname" . }}-config
+                  key: database-host
+            - name: DATABASE_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "kasm.fullname" . }}-config
+                  key: database-port
+            - name: REDIS_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "kasm.fullname" . }}-config
+                  key: redis-host
+            - name: REDIS_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "kasm.fullname" . }}-config
+                  key: redis-port
+          volumeMounts:
+            - name: scripts
+              mountPath: /scripts
+      containers:
+        - name: kasm-guac
+          {{- if .Values.kasm.applyHardening }}
+          {{- with .Values.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- end }}
+          image: "{{ .Values.services.guac.image.repository }}:{{ .Values.services.guac.image.tag }}"
+          imagePullPolicy: {{ .Values.global.image.pullPolicy }}
+          ports:
+            - name: guac
+              containerPort: 4822
+              protocol: TCP
+          env:
+            - name: DATABASE_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "kasm.fullname" . }}-config
+                  key: database-host
+            - name: DATABASE_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "kasm.fullname" . }}-config
+                  key: database-port
+            - name: DATABASE_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "kasm.fullname" . }}-config
+                  key: database-name
+            - name: DATABASE_USER
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "kasm.fullname" . }}-config
+                  key: database-user
+            - name: DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  {{- if .Values.database.external.enabled }}
+                  name: {{ .Values.database.external.existingSecret }}
+                  key: {{ .Values.database.external.existingSecretPasswordKey | default "password" }}
+                  {{- else }}
+                  name: {{ include "kasm.fullname" . }}-passwords
+                  key: db-password
+                  {{- end }}
+            - name: REDIS_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "kasm.fullname" . }}-config
+                  key: redis-host
+            - name: REDIS_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "kasm.fullname" . }}-config
+                  key: redis-port
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  {{- if .Values.redis.external.enabled }}
+                  name: {{ .Values.redis.external.existingSecret }}
+                  key: {{ .Values.redis.external.existingSecretPasswordKey | default "password" }}
+                  {{- else }}
+                  name: {{ include "kasm.fullname" . }}-passwords
+                  key: redis-password
+                  {{- end }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: var-log
+              mountPath: /var/log
+          {{- if .Values.services.guac.healthcheck.enabled }}
+          livenessProbe:
+            tcpSocket:
+              port: guac
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            tcpSocket:
+              port: guac
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          {{- end }}
+          resources:
+            {{- include "kasm.resources" (dict "component" "guac" "context" .) | nindent 12 }}
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: var-log
+          emptyDir: {}
+        - name: scripts
+          configMap:
+            name: {{ include "kasm.fullname" . }}-db-init
+            defaultMode: 0755
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

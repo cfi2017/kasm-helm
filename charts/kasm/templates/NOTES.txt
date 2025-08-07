@@ -5,18 +5,65 @@
   http{{ if $.Values.ingress.tls }}s{{ end }}://{{ $host.host }}{{ .path }}
   {{- end }}
 {{- end }}
-{{- else if contains "NodePort" .Values.service.type }}
-  export NODE_PORT=$(kubectl get --namespace {{ .Release.Namespace }} -o jsonpath="{.spec.ports[0].nodePort}" services {{ include "kasm.fullname" . }})
-  export NODE_IP=$(kubectl get nodes --namespace {{ .Release.Namespace }} -o jsonpath="{.items[0].status.addresses[0].address}")
-  echo http://$NODE_IP:$NODE_PORT
-{{- else if contains "LoadBalancer" .Values.service.type }}
-     NOTE: It may take a few minutes for the LoadBalancer IP to be available.
-           You can watch its status by running 'kubectl get --namespace {{ .Release.Namespace }} svc -w {{ include "kasm.fullname" . }}'
-  export SERVICE_IP=$(kubectl get svc --namespace {{ .Release.Namespace }} {{ include "kasm.fullname" . }} --template "{{"{{ range (index .status.loadBalancer.ingress 0) }}{{.}}{{ end }}"}}")
-  echo http://$SERVICE_IP:{{ .Values.service.port }}
-{{- else if contains "ClusterIP" .Values.service.type }}
-  export POD_NAME=$(kubectl get pods --namespace {{ .Release.Namespace }} -l "app.kubernetes.io/name={{ include "kasm.name" . }},app.kubernetes.io/instance={{ .Release.Name }}" -o jsonpath="{.items[0].metadata.name}")
-  export CONTAINER_PORT=$(kubectl get pod --namespace {{ .Release.Namespace }} $POD_NAME -o jsonpath="{.spec.containers[0].ports[0].containerPort}")
+{{- else if .Values.global.hostname }}
+  http{{ if or .Values.certificates.ingress.create .Values.certificates.ingress.existingSecret }}s{{ end }}://{{ .Values.global.hostname }}
+{{- else }}
+  kubectl --namespace {{ .Release.Namespace }} port-forward svc/{{ include "kasm.fullname" . }}-proxy 8080:80
   echo "Visit http://127.0.0.1:8080 to use your application"
-  kubectl --namespace {{ .Release.Namespace }} port-forward $POD_NAME 8080:$CONTAINER_PORT
 {{- end }}
+
+2. Kasm Workspaces has been deployed with the following components:
+{{- if .Values.services.api.enabled }}
+   ✓ Kasm API ({{ include "kasm.replicas" (dict "component" "api" "context" .) }} replica(s))
+{{- end }}
+{{- if .Values.services.manager.enabled }}
+   ✓ Kasm Manager ({{ include "kasm.replicas" (dict "component" "manager" "context" .) }} replica(s))
+{{- end }}
+{{- if .Values.services.proxy.enabled }}
+   ✓ Kasm Proxy ({{ include "kasm.replicas" (dict "component" "proxy" "context" .) }} replica(s))
+{{- end }}
+{{- if .Values.services.guac.enabled }}
+   ✓ Guacamole Service ({{ include "kasm.replicas" (dict "component" "guac" "context" .) }} replica(s))
+{{- end }}
+{{- if .Values.database.deploy }}
+   ✓ PostgreSQL Database (internal)
+{{- else if .Values.database.external.enabled }}
+   ✓ PostgreSQL Database (external: {{ .Values.database.external.host }}:{{ .Values.database.external.port }})
+{{- end }}
+{{- if .Values.redis.deploy }}
+   ✓ Redis Cache (internal)
+{{- else if .Values.redis.external.enabled }}
+   ✓ Redis Cache (external: {{ .Values.redis.external.host }}:{{ .Values.redis.external.port }})
+{{- end }}
+{{- if .Values.services.rdpGateway.enabled }}
+   ✓ RDP Gateway ({{ include "kasm.replicas" (dict "component" "rdpGateway" "context" .) }} replica(s))
+{{- end }}
+{{- if .Values.services.rdpHttpsGateway.enabled }}
+   ✓ RDP HTTPS Gateway ({{ include "kasm.replicas" (dict "component" "rdpHttpsGateway" "context" .) }} replica(s))
+{{- end }}
+
+3. Default credentials:
+   - Admin User: admin@kasm.local
+   - Admin Password: {{ if .Values.passwords.adminPassword }}[Custom Password Set]{{ else }}[Auto-generated - check secret {{ include "kasm.fullname" . }}-passwords]{{ end }}
+   - Standard User: user@kasm.local  
+   - User Password: {{ if .Values.passwords.userPassword }}[Custom Password Set]{{ else }}[Auto-generated - check secret {{ include "kasm.fullname" . }}-passwords]{{ end }}
+
+4. To get auto-generated passwords:
+   kubectl get secret {{ include "kasm.fullname" . }}-passwords -o jsonpath="{.data.admin-password}" | base64 --decode
+   kubectl get secret {{ include "kasm.fullname" . }}-passwords -o jsonpath="{.data.user-password}" | base64 --decode
+
+5. Certificate Management:
+{{- if .Values.certificates.certManager.enabled }}
+   ✓ Using cert-manager with issuer: {{ .Values.certificates.certManager.issuerName }} ({{ .Values.certificates.certManager.issuerKind }})
+{{- else }}
+   ✓ Using {{ if .Values.certificates.ingress.certificate }}provided{{ else }}self-signed{{ end }} certificates
+{{- end }}
+
+6. Database Configuration:
+{{- if .Values.database.external.enabled }}
+   ✓ External database: {{ .Values.database.external.host }}:{{ .Values.database.external.port }}/{{ .Values.database.external.database }}
+{{- else }}
+   ✓ Internal PostgreSQL with {{ .Values.database.internal.storageSize | default "10Gi" }} storage
+{{- end }}
+
+For more information about Kasm Workspaces, visit: https://kasmweb.com

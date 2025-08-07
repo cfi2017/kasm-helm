@@ -1,0 +1,39 @@
+# Sample values file for minimal Kasm Workspaces deployment
+global:
+  hostname: "kasm.local"
+
+# Use internal database and Redis (default)
+database:
+  deploy: true
+  internal:
+    storageSize: "5Gi"
+
+redis:
+  deploy: true
+
+# Self-signed certificates (default)
+certificates:
+  certManager:
+    enabled: false
+
+# Simple ingress without TLS
+ingress:
+  enabled: true
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+
+# Custom admin password
+passwords:
+  adminPassword: "admin123"
+  userPassword: "user123"
+
+# Small deployment size (default)
+kasm:
+  deploymentSize: "small"
+
+# Disable optional services
+services:
+  rdpGateway:
+    enabled: false
+  rdpHttpsGateway:
+    enabled: false

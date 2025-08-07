@@ -3,13 +3,18 @@ kind: Pod
 metadata:
   name: "{{ include "kasm.fullname" . }}-test-connection"
   labels:
-    {{- include "kasm.labels" . | nindent 4 }}
+    {{- include "kasm.commonLabels" . | nindent 4 }}
+    {{- include "kasm.componentLabels" "test" | nindent 4 }}
   annotations:
     "helm.sh/hook": test
 spec:
+  restartPolicy: Never
   containers:
-    - name: wget
+    - name: test-proxy
       image: busybox
       command: ['wget']
-      args: ['{{ include "kasm.fullname" . }}:{{ .Values.service.port }}']
-  restartPolicy: Never
+      args: ['{{ include "kasm.fullname" . }}-proxy:80/health', '--spider', '--quiet']
+    - name: test-api
+      image: busybox  
+      command: ['wget']
+      args: ['{{ include "kasm.fullname" . }}-api:8080/api/__healthcheck', '--spider', '--quiet']
