@@ -1,24 +1,4 @@
 {{- if .Values.services.api.enabled }}
-apiVersion: v1
-kind: Service
-metadata:
-  name: {{ include "kasm.fullname" . }}-api
-  namespace: {{ include "kasm.namespace" . }}
-  labels:
-    {{- include "kasm.commonLabels" . | nindent 4 }}
-    {{- include "kasm.componentLabels" "api" | nindent 4 }}
-spec:
-  type: ClusterIP
-  ports:
-    - port: 8080
-      targetPort: api
-      protocol: TCP
-      name: api
-  selector:
-    {{- include "kasm.selectorLabels" . | nindent 4 }}
-    kasm.app/component: api
-
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -110,8 +90,8 @@ spec:
             - name: DATABASE_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "kasm.fullname" . }}-passwords
-                  key: db-password
+                  name: {{ include "kasm.fullname" . }}-database-secret
+                  key: password
           volumeMounts:
             - name: scripts
               mountPath: /scripts
@@ -158,8 +138,8 @@ spec:
                   name: {{ .Values.database.external.existingSecret }}
                   key: {{ .Values.database.external.existingSecretPasswordKey | default "password" }}
                   {{- else }}
-                  name: {{ include "kasm.fullname" . }}-passwords
-                  key: db-password
+                  name: {{ include "kasm.fullname" . }}-database-secret
+                  key: password
                   {{- end }}
             - name: REDIS_HOST
               valueFrom:
@@ -178,8 +158,8 @@ spec:
                   name: {{ .Values.redis.external.existingSecret }}
                   key: {{ .Values.redis.external.existingSecretPasswordKey | default "password" }}
                   {{- else }}
-                  name: {{ include "kasm.fullname" . }}-passwords
-                  key: redis-password
+                  name: {{ include "kasm.fullname" . }}-redis-secret
+                  key: password
                   {{- end }}
           volumeMounts:
             - name: tmp

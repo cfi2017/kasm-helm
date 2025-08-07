@@ -1,0 +1,28 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "kasm.fullname" . }}-config
+  namespace: {{ include "kasm.namespace" . }}
+  labels:
+    {{- include "kasm.commonLabels" . | nindent 4 }}
+    {{- include "kasm.componentLabels" "config" | nindent 4 }}
+data:
+  # Database configuration
+  database-host: {{ include "kasm.databaseHost" . | quote }}
+  database-port: {{ include "kasm.databasePort" . | quote }}
+  database-name: {{ .Values.database.external.database | default "kasm" | quote }}
+  database-user: {{ .Values.database.external.username | default "kasmapp" | quote }}
+  database-ssl-mode: {{ .Values.database.external.sslMode | default "prefer" | quote }}
+  
+  # Redis configuration
+  redis-host: {{ include "kasm.redisHost" . | quote }}
+  redis-port: {{ include "kasm.redisPort" . | quote }}
+  
+  # Kasm configuration
+  kasm-zone: {{ .Values.kasm.zoneName | default "default" | quote }}
+  cluster-domain: {{ .Values.global.clusterDomain | default "cluster.local" | quote }}
+  
+  # Service keepalive
+  {{- if .Values.services.proxy.enabled }}
+  proxy-keepalive: {{ .Values.services.proxy.serviceKeepalive | default 16 | quote }}
+  {{- end }}

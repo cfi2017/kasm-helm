@@ -1,0 +1,20 @@
+{{- if .Values.redis.deploy }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "kasm.fullname" . }}-redis
+  namespace: {{ include "kasm.namespace" . }}
+  labels:
+    {{- include "kasm.commonLabels" . | nindent 4 }}
+    {{- include "kasm.componentLabels" "redis" | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - port: 6379
+      targetPort: redis
+      protocol: TCP
+      name: redis
+  selector:
+    {{- include "kasm.selectorLabels" . | nindent 4 }}
+    kasm.app/component: redis
+{{- end }}

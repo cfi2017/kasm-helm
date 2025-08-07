@@ -1,24 +1,4 @@
 {{- if .Values.redis.deploy }}
-apiVersion: v1
-kind: Service
-metadata:
-  name: {{ include "kasm.fullname" . }}-redis
-  namespace: {{ include "kasm.namespace" . }}
-  labels:
-    {{- include "kasm.commonLabels" . | nindent 4 }}
-    {{- include "kasm.componentLabels" "redis" | nindent 4 }}
-spec:
-  type: ClusterIP
-  ports:
-    - port: 6379
-      targetPort: redis
-      protocol: TCP
-      name: redis
-  selector:
-    {{- include "kasm.selectorLabels" . | nindent 4 }}
-    kasm.app/component: redis
-
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -77,8 +57,8 @@ spec:
             - name: REDIS_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "kasm.fullname" . }}-passwords
-                  key: redis-password
+                  name: {{ include "kasm.fullname" . }}-redis-secret
+                  key: password
           volumeMounts:
             - name: tmp
               mountPath: /tmp

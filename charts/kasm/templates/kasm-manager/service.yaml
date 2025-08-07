@@ -1,0 +1,20 @@
+{{- if .Values.services.manager.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "kasm.fullname" . }}-manager
+  namespace: {{ include "kasm.namespace" . }}
+  labels:
+    {{- include "kasm.commonLabels" . | nindent 4 }}
+    {{- include "kasm.componentLabels" "manager" | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8181
+      targetPort: manager
+      protocol: TCP
+      name: manager
+  selector:
+    {{- include "kasm.selectorLabels" . | nindent 4 }}
+    kasm.app/component: manager
+{{- end }}
