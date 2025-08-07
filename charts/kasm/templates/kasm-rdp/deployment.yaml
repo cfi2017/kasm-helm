@@ -1,24 +1,4 @@
 {{- if .Values.services.rdpGateway.enabled }}
-apiVersion: v1
-kind: Service
-metadata:
-  name: {{ include "kasm.fullname" . }}-rdp-gateway
-  namespace: {{ include "kasm.namespace" . }}
-  labels:
-    {{- include "kasm.commonLabels" . | nindent 4 }}
-    {{- include "kasm.componentLabels" "rdp-gateway" | nindent 4 }}
-spec:
-  type: ClusterIP
-  ports:
-    - port: 3389
-      targetPort: rdp
-      protocol: TCP
-      name: rdp
-  selector:
-    {{- include "kasm.selectorLabels" . | nindent 4 }}
-    kasm.app/component: rdp-gateway
-
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -72,7 +52,7 @@ spec:
             - name: SERVICE_TOKEN
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "kasm.fullname" . }}-passwords
+                  name: {{ include "kasm.fullname" . }}-shared-secrets
                   key: service-token
           volumeMounts:
             - name: tmp
@@ -201,7 +181,7 @@ spec:
             - name: SERVICE_TOKEN
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "kasm.fullname" . }}-passwords
+                  name: {{ include "kasm.fullname" . }}-shared-secrets
                   key: service-token
           volumeMounts:
             - name: tmp

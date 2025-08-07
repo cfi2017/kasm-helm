@@ -1,24 +1,4 @@
 {{- if .Values.services.guac.enabled }}
-apiVersion: v1
-kind: Service
-metadata:
-  name: {{ include "kasm.fullname" . }}-guac
-  namespace: {{ include "kasm.namespace" . }}
-  labels:
-    {{- include "kasm.commonLabels" . | nindent 4 }}
-    {{- include "kasm.componentLabels" "guac" | nindent 4 }}
-spec:
-  type: ClusterIP
-  ports:
-    - port: 4822
-      targetPort: guac
-      protocol: TCP
-      name: guac
-  selector:
-    {{- include "kasm.selectorLabels" . | nindent 4 }}
-    kasm.app/component: guac
-
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -124,8 +104,8 @@ spec:
                   name: {{ .Values.database.external.existingSecret }}
                   key: {{ .Values.database.external.existingSecretPasswordKey | default "password" }}
                   {{- else }}
-                  name: {{ include "kasm.fullname" . }}-passwords
-                  key: db-password
+                  name: {{ include "kasm.fullname" . }}-database-secret
+                  key: password
                   {{- end }}
             - name: REDIS_HOST
               valueFrom:
@@ -144,8 +124,8 @@ spec:
                   name: {{ .Values.redis.external.existingSecret }}
                   key: {{ .Values.redis.external.existingSecretPasswordKey | default "password" }}
                   {{- else }}
-                  name: {{ include "kasm.fullname" . }}-passwords
-                  key: redis-password
+                  name: {{ include "kasm.fullname" . }}-redis-secret
+                  key: password
                   {{- end }}
           volumeMounts:
             - name: tmp

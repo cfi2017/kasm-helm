@@ -1,0 +1,112 @@
+{{- if .Values.services.proxy.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "kasm.fullname" . }}-proxy-config
+  namespace: {{ include "kasm.namespace" . }}
+  labels:
+    {{- include "kasm.commonLabels" . | nindent 4 }}
+    {{- include "kasm.componentLabels" "proxy-config" | nindent 4 }}
+data:
+  nginx.conf: |
+    user nginx;
+    worker_processes auto;
+    error_log /var/log/nginx/error.log warn;
+    pid /var/run/nginx.pid;
+    
+    events {
+        worker_connections 1024;
+    }
+    
+    http {
+        include /etc/nginx/mime.types;
+        default_type application/octet-stream;
+        
+        log_format main '$remote_addr - $remote_user [$time_local] "$request" '
+                        '$status $body_bytes_sent "$http_referer" '
+                        '"$http_user_agent" "$http_x_forwarded_for"';
+        
+        access_log /var/log/nginx/access.log main;
+        
+        sendfile on;
+        tcp_nopush on;
+        tcp_nodelay on;
+        keepalive_timeout {{ .Values.services.proxy.serviceKeepalive | default 16 }};
+        types_hash_max_size 2048;
+        
+        # Gzip compression
+        gzip on;
+        gzip_vary on;
+        gzip_min_length 1024;
+        gzip_types text/plain text/css text/xml text/javascript application/x-javascript application/xml+rss;
+        
+        # Upstream for Kasm API
+        upstream kasm_api {
+            server {{ include "kasm.fullname" . }}-api:8080;
+        }
+        
+        # Upstream for Kasm Manager
+        upstream kasm_manager {
+            server {{ include "kasm.fullname" . }}-manager:8181;
+        }
+        
+        # Upstream for Guacamole
+        upstream kasm_guac {
+            server {{ include "kasm.fullname" . }}-guac:4822;
+        }
+        
+        server {
+            listen 80;
+            server_name _;
+            
+            # API endpoints
+            location /api/ {
+                proxy_pass http://kasm_api;
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Proto $scheme;
+            }
+            
+            # Manager endpoints
+            location /manager/ {
+                proxy_pass http://kasm_manager;
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Proto $scheme;
+            }
+            
+            # Guacamole WebSocket and HTTP
+            location /desktop/ {
+                proxy_pass http://kasm_guac;
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Proto $scheme;
+                
+                # WebSocket support
+                proxy_http_version 1.1;
+                proxy_set_header Upgrade $http_upgrade;
+                proxy_set_header Connection "upgrade";
+            }
+            
+            # Health check endpoint
+            location /health {
+                access_log off;
+                return 200 "healthy\n";
+                add_header Content-Type text/plain;
+            }
+            
+            # Default location
+            location / {
+                proxy_pass http://kasm_api;
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Proto $scheme;
+            }
+        }
+    }
+{{- end }}
+
