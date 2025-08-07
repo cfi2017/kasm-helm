@@ -1,69 +1,220 @@
+{{- if .Values.services.api.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "kasm.fullname" . }}-api
+  namespace: {{ include "kasm.namespace" . }}
+  labels:
+    {{- include "kasm.commonLabels" . | nindent 4 }}
+    {{- include "kasm.componentLabels" "api" | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8080
+      targetPort: api
+      protocol: TCP
+      name: api
+  selector:
+    {{- include "kasm.selectorLabels" . | nindent 4 }}
+    kasm.app/component: api
+
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "kasm.fullname" . }}
+  name: {{ include "kasm.fullname" . }}-api
+  namespace: {{ include "kasm.namespace" . }}
   labels:
-    {{- include "kasm.labels" . | nindent 4 }}
+    {{- include "kasm.commonLabels" . | nindent 4 }}
+    {{- include "kasm.componentLabels" "api" | nindent 4 }}
 spec:
-  {{- if not .Values.autoscaling.enabled }}
-  replicas: {{ .Values.replicaCount }}
-  {{- end }}
+  replicas: {{ include "kasm.replicas" (dict "component" "api" "context" .) }}
   selector:
     matchLabels:
       {{- include "kasm.selectorLabels" . | nindent 6 }}
+      kasm.app/component: api
   template:
     metadata:
+      labels:
+        {{- include "kasm.commonLabels" . | nindent 8 }}
+        {{- include "kasm.componentLabels" "api" | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
       {{- with .Values.podAnnotations }}
       annotations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      labels:
-        {{- include "kasm.labels" . | nindent 8 }}
-        {{- with .Values.podLabels }}
-        {{- toYaml . | nindent 8 }}
-        {{- end }}
     spec:
-      {{- with .Values.imagePullSecrets }}
-      imagePullSecrets:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
+      {{- include "kasm.imagePullSecrets" . | nindent 6 }}
       serviceAccountName: {{ include "kasm.serviceAccountName" . }}
+      {{- if .Values.kasm.applyHardening }}
       {{- with .Values.podSecurityContext }}
       securityContext:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      {{- end }}
+      initContainers:
+        - name: wait-for-services
+          image: busybox:1.35
+          command: ['sh', '/scripts/wait-for-services.sh']
+          env:
+            - name: DATABASE_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "kasm.fullname" . }}-config
+                  key: database-host
+            - name: DATABASE_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "kasm.fullname" . }}-config
+                  key: database-port
+            - name: REDIS_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "kasm.fullname" . }}-config
+                  key: redis-host
+            - name: REDIS_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "kasm.fullname" . }}-config
+                  key: redis-port
+          volumeMounts:
+            - name: scripts
+              mountPath: /scripts
+        {{- if not .Values.database.external.enabled }}
+        - name: init-database
+          image: "{{ .Values.database.internal.image.repository }}:{{ .Values.database.internal.image.tag }}"
+          command: ['sh', '/scripts/init-db.sh']
+          env:
+            - name: DATABASE_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "kasm.fullname" . }}-config
+                  key: database-host
+            - name: DATABASE_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "kasm.fullname" . }}-config
+                  key: database-port
+            - name: DATABASE_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "kasm.fullname" . }}-config
+                  key: database-name
+            - name: DATABASE_USER
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "kasm.fullname" . }}-config
+                  key: database-user
+            - name: DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "kasm.fullname" . }}-passwords
+                  key: db-password
+          volumeMounts:
+            - name: scripts
+              mountPath: /scripts
+        {{- end }}
       containers:
-        - name: {{ .Chart.Name }}
+        - name: kasm-api
+          {{- if .Values.kasm.applyHardening }}
           {{- with .Values.securityContext }}
           securityContext:
             {{- toYaml . | nindent 12 }}
           {{- end }}
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- end }}
+          image: "{{ .Values.services.api.image.repository }}:{{ .Values.services.api.image.tag }}"
+          imagePullPolicy: {{ .Values.global.image.pullPolicy }}
           ports:
-            - name: http
-              containerPort: {{ .Values.service.port }}
+            - name: api
+              containerPort: 8080
               protocol: TCP
-          {{- with .Values.livenessProbe }}
-          livenessProbe:
-            {{- toYaml . | nindent 12 }}
-          {{- end }}
-          {{- with .Values.readinessProbe }}
-          readinessProbe:
-            {{- toYaml . | nindent 12 }}
-          {{- end }}
-          {{- with .Values.resources }}
-          resources:
-            {{- toYaml . | nindent 12 }}
-          {{- end }}
-          {{- with .Values.volumeMounts }}
+          env:
+            - name: DATABASE_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "kasm.fullname" . }}-config
+                  key: database-host
+            - name: DATABASE_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "kasm.fullname" . }}-config
+                  key: database-port
+            - name: DATABASE_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "kasm.fullname" . }}-config
+                  key: database-name
+            - name: DATABASE_USER
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "kasm.fullname" . }}-config
+                  key: database-user
+            - name: DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  {{- if .Values.database.external.enabled }}
+                  name: {{ .Values.database.external.existingSecret }}
+                  key: {{ .Values.database.external.existingSecretPasswordKey | default "password" }}
+                  {{- else }}
+                  name: {{ include "kasm.fullname" . }}-passwords
+                  key: db-password
+                  {{- end }}
+            - name: REDIS_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "kasm.fullname" . }}-config
+                  key: redis-host
+            - name: REDIS_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "kasm.fullname" . }}-config
+                  key: redis-port
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  {{- if .Values.redis.external.enabled }}
+                  name: {{ .Values.redis.external.existingSecret }}
+                  key: {{ .Values.redis.external.existingSecretPasswordKey | default "password" }}
+                  {{- else }}
+                  name: {{ include "kasm.fullname" . }}-passwords
+                  key: redis-password
+                  {{- end }}
           volumeMounts:
-            {{- toYaml . | nindent 12 }}
+            - name: tmp
+              mountPath: /tmp
+            - name: var-log
+              mountPath: /var/log
+          {{- if .Values.services.api.healthcheck.enabled }}
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.services.api.healthcheck.path | default "/api/__healthcheck" }}
+              port: {{ .Values.services.api.healthcheck.port | default 8080 }}
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.services.api.healthcheck.path | default "/api/__healthcheck" }}
+              port: {{ .Values.services.api.healthcheck.port | default 8080 }}
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
           {{- end }}
-      {{- with .Values.volumes }}
+          resources:
+            {{- include "kasm.resources" (dict "component" "api" "context" .) | nindent 12 }}
       volumes:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
+        - name: tmp
+          emptyDir: {}
+        - name: var-log
+          emptyDir: {}
+        - name: scripts
+          configMap:
+            name: {{ include "kasm.fullname" . }}-db-init
+            defaultMode: 0755
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
@@ -76,3 +227,4 @@ spec:
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+{{- end }}

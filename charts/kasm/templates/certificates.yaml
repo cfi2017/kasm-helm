@@ -1,0 +1,72 @@
+{{/*
+Certificate management for Kasm services
+*/}}
+
+{{- range $serviceName, $certConfig := .Values.certificates }}
+{{- if and $certConfig.create (not $certConfig.existingSecret) }}
+{{- $secretName := include "kasm.certificateSecret" (dict "service" $serviceName "context" $) }}
+
+{{- if $.Values.certificates.certManager.enabled }}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ include "kasm.fullname" $ }}-{{ $serviceName }}-cert
+  namespace: {{ include "kasm.namespace" $ }}
+  labels:
+    {{- include "kasm.commonLabels" $ | nindent 4 }}
+    {{- include "kasm.componentLabels" "certificate" | nindent 4 }}
+    kasm.app/cert-service: {{ $serviceName }}
+spec:
+  secretName: {{ $secretName }}
+  issuerRef:
+    name: {{ $.Values.certificates.certManager.issuerName }}
+    kind: {{ $.Values.certificates.certManager.issuerKind }}
+  {{- if eq $serviceName "ingress" }}
+  dnsNames:
+    - {{ $.Values.global.hostname | quote }}
+    {{- range $.Values.global.altHostnames }}
+    - {{ . | quote }}
+    {{- end }}
+  {{- else }}
+  dnsNames:
+    - {{ printf "%s.%s.svc.%s" (printf "%s-%s" (include "kasm.fullname" $) $serviceName) (include "kasm.namespace" $) ($.Values.global.clusterDomain | default "cluster.local") }}
+    - {{ printf "%s-%s" (include "kasm.fullname" $) $serviceName }}
+  {{- end }}
+  
+{{- else }}
+---
+{{/*
+Self-signed certificate secret
+*/}}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ $secretName }}
+  namespace: {{ include "kasm.namespace" $ }}
+  labels:
+    {{- include "kasm.commonLabels" $ | nindent 4 }}
+    {{- include "kasm.componentLabels" "certificate" | nindent 4 }}
+    kasm.app/cert-service: {{ $serviceName }}
+type: kubernetes.io/tls
+data:
+  {{- if and $certConfig.certificate $certConfig.privateKey }}
+  tls.crt: {{ $certConfig.certificate | b64enc | quote }}
+  tls.key: {{ $certConfig.privateKey | b64enc | quote }}
+  {{- else }}
+  {{- $ca := genCA "kasm-ca" 365 }}
+  {{- $altNames := list }}
+  {{- if eq $serviceName "ingress" }}
+    {{- $altNames = append $.Values.global.altHostnames $.Values.global.hostname }}
+  {{- else }}
+    {{- $serviceFQDN := printf "%s.%s.svc.%s" (printf "%s-%s" (include "kasm.fullname" $) $serviceName) (include "kasm.namespace" $) ($.Values.global.clusterDomain | default "cluster.local") }}
+    {{- $altNames = list $serviceFQDN (printf "%s-%s" (include "kasm.fullname" $) $serviceName) }}
+  {{- end }}
+  {{- $cert := genSignedCert ($.Values.global.hostname | default "kasm.local") nil $altNames 365 $ca }}
+  tls.crt: {{ $cert.Cert | b64enc | quote }}
+  tls.key: {{ $cert.Key | b64enc | quote }}
+  {{- end }}
+
+{{- end }}
+{{- end }}
+{{- end }}
