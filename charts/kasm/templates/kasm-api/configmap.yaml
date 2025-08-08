@@ -13,7 +13,7 @@ data:
     database:
       name: {{ .Values.database.external.database | default "kasm" }}
       username: {{ .Values.database.external.username | default "kasmapp" }}
-  password: "__DB_PASSWORD__"  # Replaced by init container
+      password: "__DB_PASSWORD__"  # Replaced by init container
       host: {{ include "kasm.databaseHost" . }}
       port: {{ include "kasm.databasePort" . }}
       type: postgres
@@ -23,7 +23,7 @@ data:
     redis:
       host: {{ include "kasm.redisHost" . }}
       port: {{ include "kasm.redisPort" . }}
-  redis_password: "__REDIS_PASSWORD__"  # Replaced by init container
+      redis_password: "__REDIS_PASSWORD__"  # Replaced by init container
     logging:
       agent:
         formatters:
