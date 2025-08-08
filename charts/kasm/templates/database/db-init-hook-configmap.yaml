@@ -61,11 +61,13 @@ data:
 
     ADMIN_SALT=$(cat /proc/sys/kernel/random/uuid)
     ADMIN_HASH=$(printf "%s" "${DEFAULT_ADMIN_PASSWORD}${ADMIN_SALT}" | sha256sum | cut -c-64)
+    export ADMIN_SALT ADMIN_HASH
     /usr/bin/yq_$(uname -m) -i  '(.users.[] | select(.username=="admin@kasm.local") | .salt) = env(ADMIN_SALT)'  "$SEED_FILE"
     /usr/bin/yq_$(uname -m) -i  '(.users.[] | select(.username=="admin@kasm.local") | .pw_hash) = env(ADMIN_HASH)' "$SEED_FILE"
 
     USER_SALT=$(cat /proc/sys/kernel/random/uuid)
     USER_HASH=$(printf "%s" "${DEFAULT_USER_PASSWORD}${USER_SALT}" | sha256sum | cut -c-64)
+    export USER_SALT USER_HASH
     /usr/bin/yq_$(uname -m) -i  '(.users.[] | select(.username=="user@kasm.local") | .salt) = env(USER_SALT)'  "$SEED_FILE"
     /usr/bin/yq_$(uname -m) -i  '(.users.[] | select(.username=="user@kasm.local") | .pw_hash) = env(USER_HASH)' "$SEED_FILE"
 
