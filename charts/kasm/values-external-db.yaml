@@ -1,0 +1,61 @@
+---
+# Sample values file for Kasm Workspaces with external database and cert-manager
+global:
+  hostname: "kasm.example.com"
+  altHostnames:
+    - "kasm-alt.example.com"
+  ingressClassName: "nginx"
+
+# Use external PostgreSQL database
+database:
+  deploy: false
+  external:
+    enabled: true
+    host: "postgres.example.com"
+    port: 5432
+    database: "kasm"
+    username: "kasmapp"
+    existingSecret: "kasm-db-secret"
+    existingSecretPasswordKey: "password"
+    sslMode: "require"
+
+# Use external Redis cache
+redis:
+  deploy: false
+  external:
+    enabled: true
+    host: "redis.example.com"
+    port: 6379
+    existingSecret: "kasm-redis-secret"
+    existingSecretPasswordKey: "password"
+
+# Certificate management with cert-manager
+certificates:
+  certManager:
+    enabled: true
+    issuerName: "letsencrypt-prod"
+    issuerKind: "ClusterIssuer"
+
+# Enable ingress with TLS
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+
+# Set custom passwords (or leave empty for auto-generation)
+passwords:
+  adminPassword: ""  # Auto-generate
+  userPassword: ""   # Auto-generate
+
+# Medium deployment size
+kasm:
+  deploymentSize: "medium"
+
+# Enable autoscaling
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70

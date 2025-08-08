@@ -1,0 +1,24 @@
+# Helm chart packages
+*.tgz
+
+# Build artifacts
+dist/
+build/
+
+# Temporary files
+*.tmp
+*.temp
+.DS_Store
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Chart dependencies
+charts/*/charts/
+Chart.lock
+
+# Test artifacts
+test-results/

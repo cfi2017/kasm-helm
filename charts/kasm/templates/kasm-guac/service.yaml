@@ -1,0 +1,20 @@
+{{- if .Values.services.guac.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "kasm.fullname" . }}-guac
+  namespace: {{ include "kasm.namespace" . }}
+  labels:
+    {{- include "kasm.commonLabels" . | nindent 4 }}
+    {{- include "kasm.componentLabels" "guac" | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - port: 4822
+      targetPort: guac
+      protocol: TCP
+      name: guac
+  selector:
+    {{- include "kasm.selectorLabels" . | nindent 4 }}
+    kasm.app/component: guac
+{{- end }}

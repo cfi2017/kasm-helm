@@ -1,0 +1,107 @@
+{{- if .Values.services.proxy.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "kasm.fullname" . }}-proxy
+  namespace: {{ include "kasm.namespace" . }}
+  labels:
+    {{- include "kasm.commonLabels" . | nindent 4 }}
+    {{- include "kasm.componentLabels" "proxy" | nindent 4 }}
+spec:
+  replicas: {{ include "kasm.replicas" (dict "component" "proxy" "context" .) }}
+  selector:
+    matchLabels:
+      {{- include "kasm.selectorLabels" . | nindent 6 }}
+      kasm.app/component: proxy
+  template:
+    metadata:
+      labels:
+        {{- include "kasm.commonLabels" . | nindent 8 }}
+        {{- include "kasm.componentLabels" "proxy" | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      {{- include "kasm.imagePullSecrets" . | nindent 6 }}
+      serviceAccountName: {{ include "kasm.serviceAccountName" . }}
+      {{- if .Values.kasm.applyHardening }}
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- end }}
+      containers:
+        - name: kasm-proxy
+          {{- if .Values.kasm.applyHardening }}
+          {{- with .Values.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- end }}
+          image: "{{ .Values.services.proxy.image.repository }}:{{ .Values.services.proxy.image.tag }}"
+          imagePullPolicy: {{ .Values.global.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+          volumeMounts:
+            - name: nginx-config
+              mountPath: /etc/nginx/nginx.conf
+              subPath: nginx.conf
+            - name: tmp
+              mountPath: /tmp
+            - name: var-cache-nginx
+              mountPath: /var/cache/nginx
+            - name: var-run
+              mountPath: /var/run
+            - name: var-log-nginx
+              mountPath: /var/log/nginx
+          {{- if .Values.services.proxy.healthcheck.enabled }}
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          {{- end }}
+          resources:
+            {{- include "kasm.resources" (dict "component" "proxy" "context" .) | nindent 12 }}
+      volumes:
+        - name: nginx-config
+          configMap:
+            name: {{ include "kasm.fullname" . }}-proxy-config
+        - name: tmp
+          emptyDir: {}
+        - name: var-cache-nginx
+          emptyDir: {}
+        - name: var-run
+          emptyDir: {}
+        - name: var-log-nginx
+          emptyDir: {}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}
