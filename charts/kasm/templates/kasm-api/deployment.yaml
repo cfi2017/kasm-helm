@@ -35,14 +35,36 @@ spec:
       {{- end }}
       {{- end }}
       initContainers:
-        - name: inject-passwords
+        - name: generate-api-config
           image: busybox:1.35
-          command: ['sh', '/scripts/inject-passwords.sh']
+          command:
+            - sh
+            - -c
+            - |
+              set -eu
+              echo "[generate-api-config] Generating api.app.config.yaml with secret values"
+              DB_PASSWORD=$(cat /secrets/database/password 2>/dev/null || true)
+              REDIS_PASSWORD=$(cat /secrets/redis/password 2>/dev/null || true)
+              if [ ! -f /config/api.app.config.yaml ]; then
+                echo "Base config /config/api.app.config.yaml missing" >&2
+                exit 1
+              fi
+              # Perform targeted in-place substitutions on a copy.
+              # We only substitute the first occurrence of the placeholder patterns to avoid unintended replacements elsewhere.
+              sed "0,/password: \"\"/s//password: \"${DB_PASSWORD}\"/" /config/api.app.config.yaml \
+                | sed "0,/redis_password: \"\"/s//redis_password: \"${REDIS_PASSWORD}\"/" \
+                > /generated/api.app.config.yaml.tmp
+              mv /generated/api.app.config.yaml.tmp /generated/api.app.config.yaml
+              chmod 0444 /generated/api.app.config.yaml
+              echo "[generate-api-config] Final rendered config:" >&2
+              grep -E "password:|redis_password:" /generated/api.app.config.yaml || true
+              echo "[generate-api-config] Completed"
           volumeMounts:
-            - name: password-injection-scripts
-              mountPath: /scripts
-            - name: shared-config
-              mountPath: /shared
+            - name: api-config
+              mountPath: /config
+              readOnly: true
+            - name: api-generated-config
+              mountPath: /generated
             - name: database-secret
               mountPath: /secrets/database
               readOnly: true
@@ -180,13 +202,9 @@ spec:
               mountPath: /tmp
             - name: var-log
               mountPath: /var/log
-            - name: api-config
+            - name: api-generated-config
               mountPath: /opt/kasm/current/conf/app/api/api.app.config.yaml
               subPath: api.app.config.yaml
-              readOnly: true
-            - name: shared-config
-              mountPath: /opt/kasm/current/conf/app/api/password-config.yaml
-              subPath: password-config.yaml
               readOnly: true
           {{- if .Values.services.api.healthcheck.enabled }}
           livenessProbe:
@@ -213,12 +231,8 @@ spec:
           emptyDir: {}
         - name: var-log
           emptyDir: {}
-        - name: shared-config
+        - name: api-generated-config
           emptyDir: {}
-        - name: password-injection-scripts
-          configMap:
-            name: {{ include "kasm.fullname" . }}-password-injection
-            defaultMode: 0755
         - name: database-secret
           secret:
             {{- if .Values.database.external.enabled }}
