@@ -107,6 +107,17 @@ local systems.
 | serviceAccount.automount | bool | `true` |  |
 | serviceAccount.create | bool | `true` |  |
 | serviceAccount.name | string | `""` |  |
+| services.api.config.additional | object | `{}` |  |
+| services.api.config.database.max_overflow | int | `20` |  |
+| services.api.config.database.pool_size | int | `10` |  |
+| services.api.config.manager.manager_id | string | `nil` |  |
+| services.api.config.manager.update_timer | int | `86400` |  |
+| services.api.config.server.internal_schema | string | `"https"` |  |
+| services.api.config.server.kubernetes | bool | `false` |  |
+| services.api.config.server.sanitize_errors | bool | `true` |  |
+| services.api.config.server.server_hostname | string | `nil` |  |
+| services.api.config.server.server_id | string | `nil` |  |
+| services.api.config.share.share_id | string | `nil` |  |
 | services.api.enabled | bool | `true` |  |
 | services.api.healthcheck.enabled | bool | `true` |  |
 | services.api.healthcheck.path | string | `"/api/__healthcheck"` |  |
