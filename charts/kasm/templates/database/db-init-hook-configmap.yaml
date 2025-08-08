@@ -40,6 +40,16 @@ data:
       PGPASSWORD="$MASTER_PASSWORD" psql -h "$POSTGRES_HOST" -p "$POSTGRES_PORT" -U "$MASTER_USER" -d "$POSTGRES_DB" -c 'CREATE EXTENSION IF NOT EXISTS "uuid-ossp"' || true
     fi
 
+    # Always ensure uuid-ossp extension exists (some installations may pre-create an empty DB without the extension)
+    echo "[db-init] Ensuring uuid-ossp extension present"
+    if ! PGPASSWORD="$MASTER_PASSWORD" psql -h "$POSTGRES_HOST" -p "$POSTGRES_PORT" -U "$MASTER_USER" -d "$POSTGRES_DB" -c 'CREATE EXTENSION IF NOT EXISTS "uuid-ossp"'; then
+      echo "[db-init] Master user failed to create extension, trying application user"
+      if ! PGPASSWORD="$POSTGRES_PASSWORD" psql -h "$POSTGRES_HOST" -p "$POSTGRES_PORT" -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c 'CREATE EXTENSION IF NOT EXISTS "uuid-ossp"'; then
+        echo "[db-init] ERROR: Unable to ensure uuid-ossp extension; database initialization cannot proceed" >&2
+        exit 1
+      fi
+    fi
+
     if schema_has_settings; then
       echo "[db-init] Detected existing schema (settings table populated). Skipping seed."
       exit 0
