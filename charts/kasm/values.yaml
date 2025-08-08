@@ -56,6 +56,9 @@ database:
       existingSecret: ""
       existingSecretPasswordKey: "password"
       username: "" # if empty defaults to external.username
+  # Database initialization job settings
+  init:
+    ttlSecondsAfterFinished: 3600 # Set to 0 or null to disable TTL cleanup (failed jobs kept by hook policy)
 
   # Internal database configuration (when deploy: true)
   internal:
