@@ -246,6 +246,8 @@ ingress:
   enabled: true
   className: ""
   annotations: {}
+  # Disable rendering of TLS section (use when ingress controller provides wildcard/default cert)
+  disableTls: false
   hosts:
     - host: chart-example.local
       paths:

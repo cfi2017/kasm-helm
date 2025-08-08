@@ -27,7 +27,7 @@ spec:
   {{- if and .Values.ingress.className (semverCompare ">=1.18-0" .Capabilities.KubeVersion.GitVersion) }}
   ingressClassName: {{ .Values.ingress.className }}
   {{- end }}
-  {{- if .Values.ingress.tls }}
+  {{- if and (not .Values.ingress.disableTls) .Values.ingress.tls }}
   tls:
     {{- range .Values.ingress.tls }}
     - hosts:
@@ -36,7 +36,7 @@ spec:
         {{- end }}
       secretName: {{ .secretName }}
     {{- end }}
-  {{- else if or .Values.global.hostname .Values.certificates.ingress.create .Values.certificates.ingress.existingSecret }}
+  {{- else if and (not .Values.ingress.disableTls) (or .Values.global.hostname .Values.certificates.ingress.create .Values.certificates.ingress.existingSecret) }}
   tls:
     - hosts:
         - {{ .Values.global.hostname | default "chart-example.local" | quote }}
