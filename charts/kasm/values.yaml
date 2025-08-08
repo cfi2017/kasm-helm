@@ -150,8 +150,24 @@ services:
       port: 8080
     # API configuration file settings
     config:
-      port: 8080
-      host: "0.0.0.0"
+      # Database connection settings
+      database:
+        pool_size: 10
+        max_overflow: 20
+      # Manager configuration
+      manager:
+        manager_id: null
+        update_timer: 86400
+      # Server configuration
+      server:
+        server_id: null
+        server_hostname: null
+        sanitize_errors: true
+        internal_schema: "https"
+        kubernetes: false
+      # Share configuration
+      share:
+        share_id: null
       # Additional configuration parameters can be added here
       additional: {}
 
