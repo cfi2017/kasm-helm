@@ -41,15 +41,31 @@ spec:
           args:
             - |
               set -eu
-              if [ -f /config/api.app.config.yaml ]; then
-                cp /config/api.app.config.yaml /generated/api.app.config.yaml
-              fi
+              if [ ! -f /config/api.app.config.yaml ]; then
+                echo "[manager-config] Base config missing" >&2; exit 0; fi
+              cp /config/api.app.config.yaml /generated/api.app.config.yaml
+              DB_PASSWORD=""
+              REDIS_PASSWORD=""
+              if [ -f /secrets/database/password ]; then DB_PASSWORD=$(cat /secrets/database/password); fi
+              if [ -f /secrets/redis/password ]; then REDIS_PASSWORD=$(cat /secrets/redis/password); fi
+              ESCAPED_DB=$(printf '%s' "$DB_PASSWORD" | sed -e 's/[&/|]/\\&/g')
+              ESCAPED_REDIS=$(printf '%s' "$REDIS_PASSWORD" | sed -e 's/[&/|]/\\&/g')
+              sed -i "s|__DB_PASSWORD__|${ESCAPED_DB}|g" /generated/api.app.config.yaml || true
+              sed -i "s|__REDIS_PASSWORD__|${ESCAPED_REDIS}|g" /generated/api.app.config.yaml || true
+              chmod 0444 /generated/api.app.config.yaml
+              echo "[manager-config] Substitution complete"
           volumeMounts:
             - name: api-config
               mountPath: /config
               readOnly: true
             - name: shared-generated-config
               mountPath: /generated
+            - name: database-secret
+              mountPath: /secrets/database
+              readOnly: true
+            - name: redis-secret
+              mountPath: /secrets/redis
+              readOnly: true
         - name: wait-for-services
           image: busybox:1.35
           command: ['sh', '/scripts/wait-for-services.sh']
@@ -188,6 +204,20 @@ spec:
         - name: api-config
           configMap:
             name: {{ include "kasm.fullname" . }}-api-config
+        - name: database-secret
+          secret:
+            {{- if .Values.database.external.enabled }}
+            secretName: {{ .Values.database.external.existingSecret }}
+            {{- else }}
+            secretName: {{ include "kasm.fullname" . }}-database-secret
+            {{- end }}
+        - name: redis-secret
+          secret:
+            {{- if .Values.redis.external.enabled }}
+            secretName: {{ .Values.redis.external.existingSecret }}
+            {{- else }}
+            secretName: {{ include "kasm.fullname" . }}-redis-secret
+            {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
