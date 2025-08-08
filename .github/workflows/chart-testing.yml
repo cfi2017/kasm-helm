@@ -1,7 +1,7 @@
 ---
 name: Chart Testing
 
-on:
+'on':
   push:
     branches: [main, master]
   pull_request:
@@ -18,8 +18,9 @@ jobs:
 
       - name: Fetch target branch
         run: |
-          git fetch origin ${{ github.event.repository.default_branch }}:${{ github.event.repository.default_branch }} \
-            || true
+          git fetch origin \
+            ${{ github.event.repository.default_branch }}:\
+            ${{ github.event.repository.default_branch }} || true
 
       - name: Set up Helm
         uses: azure/setup-helm@v4
@@ -74,12 +75,12 @@ jobs:
           if [[ "${{ github.ref }}" == "refs/heads/main" ]] || \
              [[ "${{ github.ref }}" == "refs/heads/master" ]]; then
             # Lint all charts when on main branch
-            ct lint --all --validate-maintainers=false
+            ct lint --all
           else
             # Lint changed charts
-            ct lint --target-branch ${{ github.event.repository.default_branch }} \
-              --validate-maintainers=false || \
-              ct lint --all --validate-maintainers=false
+            ct lint --target-branch \
+              ${{ github.event.repository.default_branch }} || \
+              ct lint --all
           fi
 
       - name: Create kind cluster
@@ -95,14 +96,13 @@ jobs:
           if [[ "${{ github.ref }}" == "refs/heads/main" ]] || \
              [[ "${{ github.ref }}" == "refs/heads/master" ]]; then
             # Install all charts when on main branch
-            ct install --all --helm-extra-set-args "--timeout=600s" \
-              --validate-maintainers=false
+            ct install --all --helm-extra-set-args "--timeout=600s"
           else
             # Install changed charts
-            ct install --target-branch ${{ github.event.repository.default_branch }} \
-              --helm-extra-set-args "--timeout=600s" --validate-maintainers=false || \
-              ct install --all --helm-extra-set-args "--timeout=600s" \
-              --validate-maintainers=false
+            ct install --target-branch \
+              ${{ github.event.repository.default_branch }} \
+              --helm-extra-set-args "--timeout=600s" || \
+              ct install --all --helm-extra-set-args "--timeout=600s"
           fi
 
   helm-docs:
@@ -121,6 +121,7 @@ jobs:
           if git diff --exit-code; then
             echo "Documentation is up to date"
           else
-            echo "Documentation is out of date. Please run helm-docs and commit the changes."
+            echo "Documentation is out of date."
+            echo "Please run helm-docs and commit the changes."
             exit 1
           fi
