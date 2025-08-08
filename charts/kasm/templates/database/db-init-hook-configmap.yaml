@@ -1,0 +1,75 @@
+{{- if .Values.services.api.enabled }}
+{{- /* Database initialization script as a Helm hook (idempotent) */}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "kasm.fullname" . }}-db-init-hook
+  namespace: {{ include "kasm.namespace" . }}
+  labels:
+    {{- include "kasm.commonLabels" . | nindent 4 }}
+    {{- include "kasm.componentLabels" "db-init" | nindent 4 }}
+  annotations:
+    helm.sh/hook: pre-install,post-upgrade
+    helm.sh/hook-weight: "5"
+    helm.sh/hook-delete-policy: before-hook-creation
+data:
+  db-init.sh: |
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo "[db-init] Starting database initialization script"
+
+    POSTGRES_HOST="${POSTGRES_HOST:-{{ include "kasm.databaseHost" . }}}"
+    POSTGRES_PORT="${POSTGRES_PORT:-{{ include "kasm.databasePort" . }}}"
+    POSTGRES_DB="${POSTGRES_DB:-{{ .Values.database.external.database | default "kasm" }}}"
+    POSTGRES_USER="${POSTGRES_USER:-{{ .Values.database.external.username | default "kasmapp" }}}"
+    MASTER_USER="${MASTER_USER:-$POSTGRES_USER}"
+    MASTER_PASSWORD="${MASTER_PASSWORD:-$POSTGRES_PASSWORD}"
+
+    until pg_isready -h "$POSTGRES_HOST" -p "$POSTGRES_PORT" -t 5; do
+      echo "[db-init] Waiting for database ${POSTGRES_HOST}:${POSTGRES_PORT}...";
+      sleep 3;
+    done
+    echo "[db-init] Database reachable"
+
+    function db_exists() { PGPASSWORD="$MASTER_PASSWORD" psql -h "$POSTGRES_HOST" -p "$POSTGRES_PORT" -U "$MASTER_USER" -d postgres -tAc "select 1 from pg_database where datname='${POSTGRES_DB}'" 2>/dev/null | grep -q 1; }
+    function schema_has_settings() { PGPASSWORD="$MASTER_PASSWORD" psql -h "$POSTGRES_HOST" -p "$POSTGRES_PORT" -U "$MASTER_USER" -d "$POSTGRES_DB" -tAc "select 1 from settings limit 1" 2>/dev/null | grep -q 1; }
+
+    if ! db_exists; then
+      echo "[db-init] Target database ${POSTGRES_DB} does not exist. Creating (if permissions allow)."
+      PGPASSWORD="$MASTER_PASSWORD" psql -h "$POSTGRES_HOST" -p "$POSTGRES_PORT" -U "$MASTER_USER" -d postgres -v ON_ERROR_STOP=on -c "CREATE DATABASE ${POSTGRES_DB} OWNER ${MASTER_USER}" || echo "[db-init] Skipping create (already exists or insufficient perms)."
+      PGPASSWORD="$MASTER_PASSWORD" psql -h "$POSTGRES_HOST" -p "$POSTGRES_PORT" -U "$MASTER_USER" -d "$POSTGRES_DB" -c 'CREATE EXTENSION IF NOT EXISTS "uuid-ossp"' || true
+    fi
+
+    if schema_has_settings; then
+      echo "[db-init] Detected existing schema (settings table populated). Skipping seed."
+      exit 0
+    fi
+
+    echo "[db-init] Schema not initialized. Proceeding with seed/initialize."
+
+    SEED_FILE=/tmp/default_properties.yaml
+    cp /opt/kasm/current/conf/database/seed_data/default_properties.yaml "$SEED_FILE"
+
+    # Ensure tokens/passwords provided
+    : "${DEFAULT_MANAGER_TOKEN:?missing}"
+    : "${DEFAULT_REGISTRATION_TOKEN:?missing}"
+    : "${DEFAULT_ADMIN_PASSWORD:?missing}"
+    : "${DEFAULT_USER_PASSWORD:?missing}"
+
+    /usr/bin/yq_$(uname -m) -i   '(.settings.[] | select(.name=="token") | select(.category == "manager")) .value = env.DEFAULT_MANAGER_TOKEN' "$SEED_FILE"
+    /usr/bin/yq_$(uname -m) -i   '(.settings.[] | select(.name=="registration_token") | select(.category == "auth")) .value = env.DEFAULT_REGISTRATION_TOKEN' "$SEED_FILE"
+
+    ADMIN_SALT=$(cat /proc/sys/kernel/random/uuid)
+    ADMIN_HASH=$(printf "%s" "${DEFAULT_ADMIN_PASSWORD}${ADMIN_SALT}" | sha256sum | cut -c-64)
+    /usr/bin/yq_$(uname -m) -i  '(.users.[] | select(.username=="admin@kasm.local") | .salt) = strenv(ADMIN_SALT)'  "$SEED_FILE"
+    /usr/bin/yq_$(uname -m) -i  '(.users.[] | select(.username=="admin@kasm.local") | .pw_hash) = strenv(ADMIN_HASH)' "$SEED_FILE"
+
+    USER_SALT=$(cat /proc/sys/kernel/random/uuid)
+    USER_HASH=$(printf "%s" "${DEFAULT_USER_PASSWORD}${USER_SALT}" | sha256sum | cut -c-64)
+    /usr/bin/yq_$(uname -m) -i  '(.users.[] | select(.username=="user@kasm.local") | .salt) = strenv(USER_SALT)'  "$SEED_FILE"
+    /usr/bin/yq_$(uname -m) -i  '(.users.[] | select(.username=="user@kasm.local") | .pw_hash) = strenv(USER_HASH)' "$SEED_FILE"
+
+    echo "[db-init] Seeding database via application initialize command"
+    python3 /src/api_server/server.pyc --initialize-database --cfg /opt/kasm/current/conf/app/api/api.app.config.yaml --populate-production --seed-file "$SEED_FILE"
+    echo "[db-init] Initialization complete"
+{{- end }}

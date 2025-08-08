@@ -1,0 +1,108 @@
+{{- if .Values.services.api.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "kasm.fullname" . }}-db-init
+  namespace: {{ include "kasm.namespace" . }}
+  labels:
+    {{- include "kasm.commonLabels" . | nindent 4 }}
+    {{- include "kasm.componentLabels" "db-init" | nindent 4 }}
+  annotations:
+    helm.sh/hook: pre-install,post-upgrade
+    helm.sh/hook-weight: "10"
+    helm.sh/hook-delete-policy: before-hook-creation
+spec:
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        {{- include "kasm.commonLabels" . | nindent 8 }}
+        {{- include "kasm.componentLabels" "db-init" | nindent 8 }}
+    spec:
+      restartPolicy: OnFailure
+      {{- include "kasm.imagePullSecrets" . | nindent 6 }}
+      initContainers:
+        - name: wait-db
+          image: "{{ .Values.services.api.image.repository }}:{{ .Values.services.api.image.tag }}"
+          imagePullPolicy: {{ .Values.global.image.pullPolicy }}
+          command: ["/bin/bash","-c"]
+          args:
+            - |
+              echo "[wait-db] Waiting for database readiness";
+              until pg_isready -h {{ include "kasm.databaseHost" . }} -p {{ include "kasm.databasePort" . }} -t 5; do sleep 3; done;
+              echo "[wait-db] Database is ready";
+      containers:
+        - name: db-init
+          image: "{{ .Values.services.api.image.repository }}:{{ .Values.services.api.image.tag }}"
+          imagePullPolicy: {{ .Values.global.image.pullPolicy }}
+          env:
+            # Application user password (internal or external secret)
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  {{- if .Values.database.external.enabled }}
+                  name: {{ .Values.database.external.existingSecret }}
+                  key: {{ .Values.database.external.existingSecretPasswordKey | default "password" }}
+                  {{- else }}
+                  name: {{ include "kasm.fullname" . }}-database-secret
+                  key: password
+                  {{- end }}
+            # Optional master / admin credentials for external bootstrap
+            {{- if and .Values.database.external.enabled .Values.database.external.master.existingSecret }}
+            - name: MASTER_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.database.external.master.existingSecret }}
+                  key: {{ .Values.database.external.master.existingSecretPasswordKey | default "password" }}
+            - name: MASTER_USER
+              value: {{ .Values.database.external.master.username | default ( .Values.database.external.username | default "kasmapp" ) | quote }}
+            {{- end }}
+            - name: POSTGRES_USER
+              value: {{ .Values.database.external.username | default "kasmapp" | quote }}
+            - name: POSTGRES_DB
+              value: {{ .Values.database.external.database | default "kasm" | quote }}
+            - name: DEFAULT_MANAGER_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "kasm.fullname" . }}-shared-secrets
+                  key: manager-token
+            - name: DEFAULT_REGISTRATION_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "kasm.fullname" . }}-shared-secrets
+                  key: service-token
+            - name: DEFAULT_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "kasm.fullname" . }}-shared-secrets
+                  key: admin-password
+            - name: DEFAULT_USER_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "kasm.fullname" . }}-shared-secrets
+                  key: user-password
+          command: ["/bin/bash","-c"]
+          args:
+            - |
+              if PGPASSWORD=$POSTGRES_PASSWORD psql -h {{ include "kasm.databaseHost" . }} -p {{ include "kasm.databasePort" . }} -U ${POSTGRES_USER} -d ${POSTGRES_DB} -c "select 1 from settings limit 1" 2>/dev/null | grep -q 1; then
+                echo "[db-init] Database already initialized"; exit 0; fi
+              echo "[db-init] Running initialization";
+              /usr/bin/db-init.sh
+          volumeMounts:
+            - name: db-init-script
+              mountPath: /usr/bin/db-init.sh
+              subPath: db-init.sh
+              readOnly: true
+            - name: api-config
+              mountPath: /opt/kasm/current/conf/app/api/api.app.config.yaml
+              subPath: api.app.config.yaml
+              readOnly: true
+      volumes:
+        - name: db-init-script
+          configMap:
+            name: {{ include "kasm.fullname" . }}-db-init-hook
+            defaultMode: 0755
+        - name: api-config
+          configMap:
+            name: {{ include "kasm.fullname" . }}-api-config
+{{- end }}

@@ -51,6 +51,11 @@ database:
     existingSecretPasswordKey: "password"
     # SSL mode for database connection
     sslMode: "prefer"
+    # Optional master (superuser) credentials to allow bootstrap (create DB / extensions)
+    master:
+      existingSecret: ""
+      existingSecretPasswordKey: "password"
+      username: "" # if empty defaults to external.username
 
   # Internal database configuration (when deploy: true)
   internal:
