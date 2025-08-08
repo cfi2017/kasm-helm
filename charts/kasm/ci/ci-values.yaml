@@ -1,0 +1,78 @@
+---
+# CI test values for minimal deployment testing
+# This is used by chart-testing to validate chart installation
+
+# Use minimal resources for CI testing
+global:
+  image:
+    pullPolicy: IfNotPresent
+
+# Database configuration for CI
+database:
+  deploy: true
+  internal:
+    storageSize: "1Gi"
+    persistence:
+      storageClass: "standard"
+
+# Redis configuration for CI
+redis:
+  deploy: true
+  persistence:
+    storageClass: "standard"
+    size: "1Gi"
+
+# Disable external resources that aren't available in CI
+certificates:
+  certManager:
+    enabled: false
+  ingress:
+    enabled: false
+
+# Minimal resource requests for CI testing
+kasmApi:
+  resources:
+    requests:
+      memory: "128Mi"
+      cpu: "100m"
+    limits:
+      memory: "256Mi"
+      cpu: "200m"
+
+kasmManager:
+  resources:
+    requests:
+      memory: "128Mi"
+      cpu: "100m"
+    limits:
+      memory: "256Mi"
+      cpu: "200m"
+
+kasmProxy:
+  resources:
+    requests:
+      memory: "64Mi"
+      cpu: "50m"
+    limits:
+      memory: "128Mi"
+      cpu: "100m"
+
+kasmGuac:
+  resources:
+    requests:
+      memory: "128Mi"
+      cpu: "100m"
+    limits:
+      memory: "256Mi"
+      cpu: "200m"
+
+kasmRdp:
+  enabled: false  # Disable RDP for CI testing
+
+# Disable autoscaling for CI
+autoscaling:
+  enabled: false
+
+# Use minimal ingress configuration
+ingress:
+  enabled: false

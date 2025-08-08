@@ -1,10 +1,11 @@
+---
 # Global configuration
 global:
   # Kubernetes namespace where all Kasm resources will be deployed (overrides Release.Namespace)
   namespace: ""
   # Kubernetes clusterDomain name - default K8s Cluster Domain is "cluster.local"
   clusterDomain: "cluster.local"
-  
+
   # Image configuration
   image:
     # Global Docker registry secret names
@@ -13,7 +14,7 @@ global:
     pullPolicy: IfNotPresent
     # Global image restart policy
     restartPolicy: Always
-    
+
   # Ingress configuration
   ingressClassName: ""
   # Global hostname to use for TLS Certificates and ingress URL
@@ -50,7 +51,7 @@ database:
     existingSecretPasswordKey: "password"
     # SSL mode for database connection
     sslMode: "prefer"
-  
+
   # Internal database configuration (when deploy: true)
   internal:
     image:
@@ -107,7 +108,7 @@ certificates:
     issuerName: ""
     # Certificate issuer kind
     issuerKind: "ClusterIssuer"
-  
+
   # Certificate configurations for different services
   ingress:
     # Use existing TLS secret
@@ -118,13 +119,13 @@ certificates:
     certificate: ""
     # Manually provided private key (PEM format)
     privateKey: ""
-  
+
   proxy:
     existingSecret: ""
     create: true
     certificate: ""
     privateKey: ""
-  
+
   rdpGateway:
     existingSecret: ""
     create: true
@@ -147,7 +148,7 @@ services:
       enabled: true
       path: "/api/__healthcheck"
       port: 8080
-  
+
   # Kasm Manager service
   manager:
     name: kasm-manager
@@ -159,7 +160,7 @@ services:
     resources: {}
     healthcheck:
       enabled: true
-  
+
   # Kasm Proxy service (Nginx)
   proxy:
     name: kasm-proxy
@@ -173,7 +174,7 @@ services:
     serviceKeepalive: 16
     healthcheck:
       enabled: true
-  
+
   # Guacamole service for remote desktop connections
   guac:
     name: kasm-guac
@@ -185,7 +186,7 @@ services:
     resources: {}
     healthcheck:
       enabled: true
-  
+
   # RDP Gateway service
   rdpGateway:
     name: kasm-rdp-gateway
@@ -197,7 +198,7 @@ services:
     resources: {}
     healthcheck:
       enabled: true
-  
+
   # HTTPS RDP Gateway service
   rdpHttpsGateway:
     name: kasm-rdp-https-gateway
@@ -247,7 +248,7 @@ securityContext:
   allowPrivilegeEscalation: false
   capabilities:
     drop:
-    - ALL
+      - ALL
   readOnlyRootFilesystem: true
   runAsNonRoot: true
   runAsUser: 1000

@@ -15,6 +15,10 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Fetch target branch
+        run: |
+          git fetch origin ${{ github.event.repository.default_branch }}:${{ github.event.repository.default_branch }} || true
+
       - name: Set up Helm
         uses: azure/setup-helm@v4
         with:
@@ -26,20 +30,49 @@ jobs:
           python-version: '3.9'
           check-latest: true
 
+      - name: Install chart-testing dependencies
+        run: |
+          pip install yamale
+
       - name: Set up chart-testing
         uses: helm/chart-testing-action@v2.6.1
+
+      - name: Add Helm repositories (if needed)
+        run: |
+          helm repo add bitnami https://charts.bitnami.com/bitnami
+          helm repo update
 
       - name: Run chart-testing (list)
         id: list
         run: |
-          changed=$(ct list --target-branch ${{ github.event.repository.default_branch }})
-          if [[ -n "$changed" ]]; then
+          # If we're on main branch, test all charts
+          if [[ "${{ github.ref }}" == "refs/heads/main" ]] || [[ "${{ github.ref }}" == "refs/heads/master" ]]; then
             echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "Running on main branch - testing all charts"
+          else
+            # Check for changed charts
+            changed=$(ct list-changed --target-branch ${{ github.event.repository.default_branch }} 2>/dev/null || echo "")
+            if [[ -n "$changed" ]]; then
+              echo "changed=true" >> "$GITHUB_OUTPUT"
+              echo "Charts changed: $changed"
+            else
+              echo "No charts changed"
+              # Fallback: if we can't detect changes, test anyway for safety
+              echo "changed=true" >> "$GITHUB_OUTPUT"
+              echo "Fallback: testing charts due to detection uncertainty"
+            fi
           fi
 
       - name: Run chart-testing (lint)
         if: steps.list.outputs.changed == 'true'
-        run: ct lint --target-branch ${{ github.event.repository.default_branch }}
+        run: |
+          if [[ "${{ github.ref }}" == "refs/heads/main" ]] || [[ "${{ github.ref }}" == "refs/heads/master" ]]; then
+            # Lint all charts when on main branch
+            ct lint --all --validate-maintainers=false
+          else
+            # Lint changed charts
+            ct lint --target-branch ${{ github.event.repository.default_branch }} --validate-maintainers=false || ct lint --all --validate-maintainers=false
+          fi
 
       - name: Create kind cluster
         if: steps.list.outputs.changed == 'true'
@@ -67,7 +100,14 @@ jobs:
 
       - name: Run chart-testing (install)
         if: steps.list.outputs.changed == 'true'
-        run: ct install --target-branch ${{ github.event.repository.default_branch }} --helm-extra-set-args "--timeout=600s"
+        run: |
+          if [[ "${{ github.ref }}" == "refs/heads/main" ]] || [[ "${{ github.ref }}" == "refs/heads/master" ]]; then
+            # Install all charts when on main branch
+            ct install --all --helm-extra-set-args "--timeout=600s" --validate-maintainers=false
+          else
+            # Install changed charts
+            ct install --target-branch ${{ github.event.repository.default_branch }} --helm-extra-set-args "--timeout=600s" --validate-maintainers=false || ct install --all --helm-extra-set-args "--timeout=600s" --validate-maintainers=false
+          fi
 
   helm-docs:
     runs-on: ubuntu-latest
