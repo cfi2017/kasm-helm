@@ -1,0 +1,34 @@
+{{- if .Values.services.api.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "kasm.fullname" . }}-api-config
+  namespace: {{ include "kasm.namespace" . }}
+  labels:
+    {{- include "kasm.commonLabels" . | nindent 4 }}
+    {{- include "kasm.componentLabels" "api-config" | nindent 4 }}
+data:
+  api.app.config.yaml: |
+    # Kasm API Application Configuration
+    api:
+      port: {{ .Values.services.api.config.port | default 8080 }}
+      host: {{ .Values.services.api.config.host | default "0.0.0.0" }}
+      
+    database:
+      host: {{ include "kasm.databaseHost" . }}
+      port: {{ include "kasm.databasePort" . }}
+      name: {{ .Values.database.external.database | default "kasm" }}
+      user: {{ .Values.database.external.username | default "kasmapp" }}
+      ssl_mode: {{ .Values.database.external.sslMode | default "prefer" }}
+      
+    redis:
+      host: {{ include "kasm.redisHost" . }}
+      port: {{ include "kasm.redisPort" . }}
+      
+    kasm:
+      zone: {{ .Values.kasm.zoneName | default "default" }}
+      
+    {{- with .Values.services.api.config.additional }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+{{- end }}

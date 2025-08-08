@@ -148,6 +148,12 @@ services:
       enabled: true
       path: "/api/__healthcheck"
       port: 8080
+    # API configuration file settings
+    config:
+      port: 8080
+      host: "0.0.0.0"
+      # Additional configuration parameters can be added here
+      additional: {}
 
   # Kasm Manager service
   manager:

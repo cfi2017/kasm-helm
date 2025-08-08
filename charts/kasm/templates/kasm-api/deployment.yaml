@@ -166,6 +166,10 @@ spec:
               mountPath: /tmp
             - name: var-log
               mountPath: /var/log
+            - name: api-config
+              mountPath: /opt/kasm/current/conf/app/api/api.app.config.yaml
+              subPath: api.app.config.yaml
+              readOnly: true
           {{- if .Values.services.api.healthcheck.enabled }}
           livenessProbe:
             httpGet:
@@ -195,6 +199,9 @@ spec:
           configMap:
             name: {{ include "kasm.fullname" . }}-db-init
             defaultMode: 0755
+        - name: api-config
+          configMap:
+            name: {{ include "kasm.fullname" . }}-api-config
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

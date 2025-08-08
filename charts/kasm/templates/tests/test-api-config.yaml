@@ -1,0 +1,38 @@
+{{- if .Values.services.api.enabled }}
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "{{ include "kasm.fullname" . }}-test-api-config"
+  labels:
+    {{- include "kasm.commonLabels" . | nindent 4 }}
+    {{- include "kasm.componentLabels" "test-api-config" | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+spec:
+  restartPolicy: Never
+  containers:
+    - name: test-api-config-file
+      image: "{{ .Values.services.api.image.repository }}:{{ .Values.services.api.image.tag }}"
+      command: ['sh', '-c']
+      args: 
+        - |
+          echo "Testing API config file exists..."
+          if [ -f /opt/kasm/current/conf/app/api/api.app.config.yaml ]; then
+            echo "✅ API config file exists at expected path"
+            echo "File contents:"
+            cat /opt/kasm/current/conf/app/api/api.app.config.yaml
+            exit 0
+          else
+            echo "❌ API config file not found at /opt/kasm/current/conf/app/api/api.app.config.yaml"
+            exit 1
+          fi
+      volumeMounts:
+        - name: api-config
+          mountPath: /opt/kasm/current/conf/app/api/api.app.config.yaml
+          subPath: api.app.config.yaml
+          readOnly: true
+  volumes:
+    - name: api-config
+      configMap:
+        name: {{ include "kasm.fullname" . }}-api-config
+{{- end }}
