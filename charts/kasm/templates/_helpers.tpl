@@ -234,8 +234,8 @@ requests:
   cpu: 50m
   memory: 128Mi
 limits:
-  cpu: 200m
-  memory: 256Mi
+  cpu: 500m
+  memory: 512Mi
 {{- else if eq $size "medium" }}
 requests:
   cpu: 100m

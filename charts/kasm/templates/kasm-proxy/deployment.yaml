@@ -34,6 +34,22 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       {{- end }}
+      initContainers:
+        - name: generate-shared-config
+          image: busybox:1.35
+          command: ["sh","-c"]
+          args:
+            - |
+              set -eu
+              if [ -f /config/api.app.config.yaml ]; then
+                cp /config/api.app.config.yaml /generated/api.app.config.yaml
+              fi
+          volumeMounts:
+            - name: api-config
+              mountPath: /config
+              readOnly: true
+            - name: shared-generated-config
+              mountPath: /generated
       containers:
         - name: kasm-proxy
           {{- if .Values.kasm.applyHardening }}
@@ -60,6 +76,10 @@ spec:
               mountPath: /var/run
             - name: var-log-nginx
               mountPath: /var/log/nginx
+            - name: shared-generated-config
+              mountPath: /opt/kasm/current/conf/app/api/api.app.config.yaml
+              subPath: api.app.config.yaml
+              readOnly: true
           {{- if .Values.services.proxy.healthcheck.enabled }}
           livenessProbe:
             httpGet:
@@ -92,6 +112,11 @@ spec:
           emptyDir: {}
         - name: var-log-nginx
           emptyDir: {}
+        - name: shared-generated-config
+          emptyDir: {}
+        - name: api-config
+          configMap:
+            name: {{ include "kasm.fullname" . }}-api-config
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
