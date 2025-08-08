@@ -1,119 +1,158 @@
-# Kasm Workspaces Helm Chart
+# kasm
 
-This chart deploys [Kasm Workspaces](https://kasmweb.com) on Kubernetes following Helm best practices and GitOps compatibility.
+![Version: 1.17.0](https://img.shields.io/badge/Version-1.17.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 1.17.0](https://img.shields.io/badge/AppVersion-1.17.0-informational?style=flat-square)
 
-## Features
+Kasm is a platform specializing in providing secure browser-based workspaces
+for a wide range of applications and industries. Its main goal is to provide
+isolated and secure environments that can be accessed via web browsers,
+ensuring that users can perform tasks without risking the security of their
+local systems.
 
-### Improvements over Original Chart
+**Homepage:** <https://kasmweb.com>
 
-- ✅ **External Database Support**: Connect to existing PostgreSQL databases
-- ✅ **cert-manager Integration**: Automatic certificate management
-- ✅ **GitOps Compatible**: No helm hooks that break ArgoCD workflows
-- ✅ **Idiomatic Helm**: Follows Helm best practices throughout
-- ✅ **Security Hardened**: Pod security contexts and STIG compliance
-- ✅ **Production Ready**: Persistent storage, health checks, autoscaling
+## Maintainers
 
-### Supported Components
+| Name | Email | Url |
+| ---- | ------ | --- |
+| CFI2017 |  | <https://github.com/cfi2017/kasm-helm> |
 
-- **Kasm API**: Core API service with health checks
-- **Kasm Manager**: Agent management service
-- **Kasm Proxy**: Nginx reverse proxy with proper upstream configuration
-- **Guacamole**: Remote desktop connection service
-- **PostgreSQL**: Internal database or external database support
-- **Redis**: Internal cache or external Redis support
-- **RDP Gateways**: Optional RDP connection services
+## Values
 
-## Quick Start
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| affinity | object | `{}` |  |
+| autoscaling.enabled | bool | `false` |  |
+| autoscaling.maxReplicas | int | `10` |  |
+| autoscaling.minReplicas | int | `1` |  |
+| autoscaling.targetCPUUtilizationPercentage | int | `80` |  |
+| autoscaling.targetMemoryUtilizationPercentage | int | `80` |  |
+| certificates.certManager.enabled | bool | `false` |  |
+| certificates.certManager.issuerKind | string | `"ClusterIssuer"` |  |
+| certificates.certManager.issuerName | string | `""` |  |
+| certificates.ingress.certificate | string | `""` |  |
+| certificates.ingress.create | bool | `true` |  |
+| certificates.ingress.existingSecret | string | `""` |  |
+| certificates.ingress.privateKey | string | `""` |  |
+| certificates.proxy.certificate | string | `""` |  |
+| certificates.proxy.create | bool | `true` |  |
+| certificates.proxy.existingSecret | string | `""` |  |
+| certificates.proxy.privateKey | string | `""` |  |
+| certificates.rdpGateway.certificate | string | `""` |  |
+| certificates.rdpGateway.create | bool | `true` |  |
+| certificates.rdpGateway.existingSecret | string | `""` |  |
+| certificates.rdpGateway.privateKey | string | `""` |  |
+| database.deploy | bool | `true` |  |
+| database.external.database | string | `"kasm"` |  |
+| database.external.enabled | bool | `false` |  |
+| database.external.existingSecret | string | `""` |  |
+| database.external.existingSecretPasswordKey | string | `"password"` |  |
+| database.external.host | string | `""` |  |
+| database.external.port | int | `5432` |  |
+| database.external.sslMode | string | `"prefer"` |  |
+| database.external.username | string | `"kasmapp"` |  |
+| database.internal.image.repository | string | `"kasmweb/postgres"` |  |
+| database.internal.image.tag | string | `"1.17.0"` |  |
+| database.internal.persistentVolumeClaimRetentionPolicy.enabled | bool | `false` |  |
+| database.internal.persistentVolumeClaimRetentionPolicy.whenDeleted | string | `"Retain"` |  |
+| database.internal.persistentVolumeClaimRetentionPolicy.whenScaled | string | `"Retain"` |  |
+| database.internal.resources | object | `{}` |  |
+| database.internal.storageClassName | string | `""` |  |
+| database.internal.storageSize | string | `"10Gi"` |  |
+| global.altHostnames | list | `[]` |  |
+| global.clusterDomain | string | `"cluster.local"` |  |
+| global.hostname | string | `""` |  |
+| global.image.pullPolicy | string | `"IfNotPresent"` |  |
+| global.image.pullSecrets | list | `[]` |  |
+| global.image.restartPolicy | string | `"Always"` |  |
+| global.ingressClassName | string | `""` |  |
+| global.namespace | string | `""` |  |
+| ingress.annotations | object | `{}` |  |
+| ingress.className | string | `""` |  |
+| ingress.enabled | bool | `true` |  |
+| ingress.hosts[0].host | string | `"chart-example.local"` |  |
+| ingress.hosts[0].paths[0].path | string | `"/"` |  |
+| ingress.hosts[0].paths[0].pathType | string | `"Prefix"` |  |
+| ingress.tls | list | `[]` |  |
+| kasm.applyHardening | bool | `true` |  |
+| kasm.deploymentSize | string | `"small"` |  |
+| kasm.name | string | `"kasm"` |  |
+| kasm.zoneName | string | `"default"` |  |
+| nodeSelector | object | `{}` |  |
+| passwords.adminPassword | string | `""` |  |
+| passwords.dbPassword | string | `""` |  |
+| passwords.managerToken | string | `""` |  |
+| passwords.redisPassword | string | `""` |  |
+| passwords.serviceToken | string | `""` |  |
+| passwords.userPassword | string | `""` |  |
+| podAnnotations | object | `{}` |  |
+| podLabels | object | `{}` |  |
+| podSecurityContext.fsGroup | int | `1000` |  |
+| podSecurityContext.runAsNonRoot | bool | `true` |  |
+| podSecurityContext.runAsUser | int | `1000` |  |
+| redis.deploy | bool | `true` |  |
+| redis.external.enabled | bool | `false` |  |
+| redis.external.existingSecret | string | `""` |  |
+| redis.external.existingSecretPasswordKey | string | `"password"` |  |
+| redis.external.host | string | `""` |  |
+| redis.external.port | int | `6379` |  |
+| redis.image.repository | string | `"redis"` |  |
+| redis.image.tag | string | `"5-alpine"` |  |
+| redis.resources | object | `{}` |  |
+| securityContext.allowPrivilegeEscalation | bool | `false` |  |
+| securityContext.capabilities.drop[0] | string | `"ALL"` |  |
+| securityContext.readOnlyRootFilesystem | bool | `true` |  |
+| securityContext.runAsNonRoot | bool | `true` |  |
+| securityContext.runAsUser | int | `1000` |  |
+| serviceAccount.annotations | object | `{}` |  |
+| serviceAccount.automount | bool | `true` |  |
+| serviceAccount.create | bool | `true` |  |
+| serviceAccount.name | string | `""` |  |
+| services.api.enabled | bool | `true` |  |
+| services.api.healthcheck.enabled | bool | `true` |  |
+| services.api.healthcheck.path | string | `"/api/__healthcheck"` |  |
+| services.api.healthcheck.port | int | `8080` |  |
+| services.api.image.repository | string | `"kasmweb/api"` |  |
+| services.api.image.tag | string | `"1.17.0"` |  |
+| services.api.name | string | `"kasm-api"` |  |
+| services.api.replicas | int | `1` |  |
+| services.api.resources | object | `{}` |  |
+| services.guac.enabled | bool | `true` |  |
+| services.guac.healthcheck.enabled | bool | `true` |  |
+| services.guac.image.repository | string | `"kasmweb/kasm-guac"` |  |
+| services.guac.image.tag | string | `"1.17.0"` |  |
+| services.guac.name | string | `"kasm-guac"` |  |
+| services.guac.replicas | int | `1` |  |
+| services.guac.resources | object | `{}` |  |
+| services.manager.enabled | bool | `true` |  |
+| services.manager.healthcheck.enabled | bool | `true` |  |
+| services.manager.image.repository | string | `"kasmweb/manager"` |  |
+| services.manager.image.tag | string | `"1.17.0"` |  |
+| services.manager.name | string | `"kasm-manager"` |  |
+| services.manager.replicas | int | `1` |  |
+| services.manager.resources | object | `{}` |  |
+| services.proxy.enabled | bool | `true` |  |
+| services.proxy.healthcheck.enabled | bool | `true` |  |
+| services.proxy.image.repository | string | `"kasmweb/proxy"` |  |
+| services.proxy.image.tag | string | `"1.17.0"` |  |
+| services.proxy.name | string | `"kasm-proxy"` |  |
+| services.proxy.replicas | int | `1` |  |
+| services.proxy.resources | object | `{}` |  |
+| services.proxy.serviceKeepalive | int | `16` |  |
+| services.rdpGateway.enabled | bool | `false` |  |
+| services.rdpGateway.healthcheck.enabled | bool | `true` |  |
+| services.rdpGateway.image.repository | string | `"kasmweb/rdp-gateway"` |  |
+| services.rdpGateway.image.tag | string | `"1.17.0"` |  |
+| services.rdpGateway.name | string | `"kasm-rdp-gateway"` |  |
+| services.rdpGateway.replicas | int | `1` |  |
+| services.rdpGateway.resources | object | `{}` |  |
+| services.rdpHttpsGateway.enabled | bool | `false` |  |
+| services.rdpHttpsGateway.healthcheck.enabled | bool | `true` |  |
+| services.rdpHttpsGateway.image.repository | string | `"kasmweb/rdp-https-gateway"` |  |
+| services.rdpHttpsGateway.image.tag | string | `"1.17.0"` |  |
+| services.rdpHttpsGateway.name | string | `"kasm-rdp-https-gateway"` |  |
+| services.rdpHttpsGateway.replicas | int | `1` |  |
+| services.rdpHttpsGateway.resources | object | `{}` |  |
+| tolerations | list | `[]` |  |
 
-### Minimal Installation
-
-```bash
-helm install kasm ./charts/kasm --values charts/kasm/values-minimal.yaml
-```
-
-### External Database Installation
-
-```bash
-# Create database secret first
-kubectl create secret generic kasm-db-secret --from-literal=password=mydbpassword
-
-# Install with external database
-helm install kasm ./charts/kasm --values charts/kasm/values-external-db.yaml
-```
-
-### With cert-manager
-
-```bash
-helm install kasm ./charts/kasm \
-  --set global.hostname=kasm.example.com \
-  --set certificates.certManager.enabled=true \
-  --set certificates.certManager.issuerName=letsencrypt-prod \
-  --set ingress.enabled=true
-```
-
-## Configuration
-
-### Database Options
-
-| Option | Description | Default |
-|--------|-------------|---------|
-| `database.deploy` | Deploy internal PostgreSQL | `true` |
-| `database.external.enabled` | Use external database | `false` |
-| `database.external.host` | External database host | `""` |
-| `database.external.existingSecret` | Reference to existing database secret | `""` |
-
-### Certificate Management
-
-| Option | Description | Default |
-|--------|-------------|---------|
-| `certificates.certManager.enabled` | Use cert-manager for certificates | `false` |
-| `certificates.certManager.issuerName` | cert-manager issuer name | `""` |
-| `certificates.ingress.existingSecret` | Use existing TLS secret | `""` |
-
-### Deployment Sizes
-
-| Size | Description | API Replicas | Resources |
-|------|-------------|--------------|-----------|
-| `small` | Development/testing | 1 | Low |
-| `medium` | Production | 2 | Medium |
-| `large` | High availability | 3 | High |
-
-## Examples
-
-See the included example values files:
-
-- `values-minimal.yaml`: Simple deployment with internal database
-- `values-external-db.yaml`: External database with cert-manager
-
-## Security
-
-The chart implements several security best practices:
-
-- Non-root user containers
-- Read-only root filesystems
-- Pod security contexts
-- Secret-based password management
-- Network policies support
-
-## GitOps Compatibility
-
-This chart is fully compatible with GitOps workflows:
-
-- No helm hooks that interfere with ArgoCD
-- Init containers for service dependencies
-- Declarative configuration management
-- Supports ArgoCD sync policies
-
-## Requirements
-
-- Kubernetes 1.19+
-- Helm 3.8+
-- cert-manager (optional, for automatic certificates)
-- External PostgreSQL (optional, for external database)
-- External Redis (optional, for external cache)
-
-## Support
-
-For issues with this chart, please create an issue in the repository.
-
-For Kasm Workspaces product support, visit [https://kasmweb.com](https://kasmweb.com).
+----------------------------------------------
+Autogenerated from chart metadata using [helm-docs v1.13.1](https://github.com/norwoodj/helm-docs/releases/v1.13.1)
