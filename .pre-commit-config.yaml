@@ -1,0 +1,128 @@
+---
+# Pre-commit hooks for Helm chart linting, testing, and documentation generation
+repos:
+  # Basic file cleanup and formatting
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.4.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+        args: ['--allow-multiple-documents']
+        exclude: ^charts/.*/templates/
+      - id: check-added-large-files
+      - id: check-merge-conflict
+
+  # Local hooks for Helm chart validation
+  - repo: local
+    hooks:
+      - id: helm-lint
+        name: Helm Lint
+        entry: helm
+        language: system
+        args: ['lint', 'charts/kasm']
+        files: ^charts/.*/(Chart\.yaml|values.*\.yaml|templates/.*)$
+        pass_filenames: false
+        description: 'Lint Helm charts'
+
+      - id: yamllint
+        name: YAML Lint
+        entry: yamllint
+        language: system
+        args: ['-c', '.github/lintconf.yaml']
+        files: ^charts/.*\.(yaml|yml)$
+        exclude: ^charts/.*/templates/
+        description: 'Lint YAML files (excluding Helm templates)'
+
+      - id: helm-template-test
+        name: Helm Template Test
+        entry: bash
+        language: system
+        pass_filenames: false
+        files: ^charts/.*/(Chart\.yaml|values.*\.yaml|templates/.*)$
+        args:
+          - -c
+          - |
+            # Test helm template generation for all charts
+            echo "Testing template generation for Kasm chart..."
+
+            # Test with default values
+            helm template test-release charts/kasm > /dev/null
+
+            # Test with CI values if they exist
+            if [ -f "charts/kasm/ci/ci-values.yaml" ]; then
+              echo "Testing with CI values..."
+              helm template test-release charts/kasm -f charts/kasm/ci/ci-values.yaml > /dev/null
+            fi
+
+            # Test with minimal values if they exist
+            if [ -f "charts/kasm/values-minimal.yaml" ]; then
+              echo "Testing with minimal values..."
+              helm template test-release charts/kasm -f charts/kasm/values-minimal.yaml > /dev/null
+            fi
+
+            echo "✓ Template generation successful"
+        description: 'Test Helm template generation'
+
+      - id: helm-docs
+        name: Helm Docs
+        entry: bash
+        language: system
+        pass_filenames: false
+        always_run: false
+        files: ^charts/.*/(Chart\.yaml|values.*\.yaml|README\.md)$
+        args:
+          - -c
+          - |
+            # Check if helm-docs is installed
+            if command -v helm-docs &> /dev/null; then
+              echo "Generating documentation with helm-docs..."
+              helm-docs --chart-search-root=charts
+            else
+              echo "helm-docs not found. Using Docker fallback..."
+              if command -v docker &> /dev/null; then
+                docker run --rm -v "$(pwd):/helm-docs" -u $(id -u) jnorwood/helm-docs:latest --chart-search-root=charts
+              else
+                echo "⚠️  Neither helm-docs nor Docker available. Skipping docs generation."
+                echo "   Install helm-docs: go install github.com/norwoodj/helm-docs/cmd/helm-docs@latest"
+                exit 0
+              fi
+            fi
+
+            # Check if documentation changed
+            if ! git diff --exit-code --quiet charts/kasm/README.md 2>/dev/null; then
+              echo "📝 Documentation has been updated. Please review and commit the changes."
+            fi
+        description: 'Generate Helm documentation'
+
+      - id: values-validation
+        name: Values File Validation
+        entry: bash
+        language: system
+        pass_filenames: false
+        files: ^charts/.*/values.*\.yaml$
+        args:
+          - -c
+          - |
+            echo "Validating values files..."
+            for values_file in charts/kasm/values*.yaml; do
+              if [ -f "$values_file" ]; then
+                echo "  Validating $values_file..."
+                helm template test-release charts/kasm -f "$values_file" > /dev/null
+              fi
+            done
+            echo "✓ All values files are valid"
+        description: 'Validate Helm values files'
+
+# CI configuration for developers
+ci:
+  autofix_commit_msg: |
+    [pre-commit.ci] auto fixes from pre-commit.com hooks
+
+    for more information, see https://pre-commit.ci
+  autofix_prs: true
+  autoupdate_branch: ''
+  autoupdate_commit_msg: '[pre-commit.ci] pre-commit autoupdate'
+  autoupdate_schedule: weekly
+  skip: []
+  submodules: false

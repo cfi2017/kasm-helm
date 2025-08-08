@@ -1,3 +1,4 @@
+---
 # Sample values file for Kasm Workspaces with external database and cert-manager
 global:
   hostname: "kasm.example.com"

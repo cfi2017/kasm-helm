@@ -1,3 +1,4 @@
+---
 # Sample values file for minimal Kasm Workspaces deployment
 global:
   hostname: "kasm.local"

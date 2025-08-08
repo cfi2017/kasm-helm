@@ -13,15 +13,15 @@ data:
   database-name: {{ .Values.database.external.database | default "kasm" | quote }}
   database-user: {{ .Values.database.external.username | default "kasmapp" | quote }}
   database-ssl-mode: {{ .Values.database.external.sslMode | default "prefer" | quote }}
-  
+
   # Redis configuration
   redis-host: {{ include "kasm.redisHost" . | quote }}
   redis-port: {{ include "kasm.redisPort" . | quote }}
-  
+
   # Kasm configuration
   kasm-zone: {{ .Values.kasm.zoneName | default "default" | quote }}
   cluster-domain: {{ .Values.global.clusterDomain | default "cluster.local" | quote }}
-  
+
   # Service keepalive
   {{- if .Values.services.proxy.enabled }}
   proxy-keepalive: {{ .Values.services.proxy.serviceKeepalive | default 16 | quote }}

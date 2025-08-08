@@ -15,6 +15,6 @@ spec:
       command: ['wget']
       args: ['{{ include "kasm.fullname" . }}-proxy:80/health', '--spider', '--quiet']
     - name: test-api
-      image: busybox  
+      image: busybox
       command: ['wget']
       args: ['{{ include "kasm.fullname" . }}-api:8080/api/__healthcheck', '--spider', '--quiet']

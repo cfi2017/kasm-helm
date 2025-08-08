@@ -33,7 +33,7 @@ spec:
     - {{ printf "%s.%s.svc.%s" (printf "%s-%s" (include "kasm.fullname" $) $serviceName) (include "kasm.namespace" $) ($.Values.global.clusterDomain | default "cluster.local") }}
     - {{ printf "%s-%s" (include "kasm.fullname" $) $serviceName }}
   {{- end }}
-  
+
 {{- else }}
 ---
 {{/*

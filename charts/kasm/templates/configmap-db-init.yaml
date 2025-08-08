@@ -13,25 +13,25 @@ data:
   init-db.sh: |
     #!/bin/bash
     set -e
-    
+
     # Wait for database to be ready
     echo "Waiting for database to be ready..."
     until pg_isready -h "${DATABASE_HOST}" -p "${DATABASE_PORT}" -U "${DATABASE_USER}"; do
       echo "Database not ready, waiting..."
       sleep 2
     done
-    
+
     echo "Database is ready, checking if initialization is needed..."
-    
+
     # Check if database is already initialized
     PGPASSWORD="${DATABASE_PASSWORD}" psql -h "${DATABASE_HOST}" -p "${DATABASE_PORT}" -U "${DATABASE_USER}" -d "${DATABASE_NAME}" -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public';" 2>/dev/null | grep -q " 0" && DB_EMPTY=true || DB_EMPTY=false
-    
+
     if [ "$DB_EMPTY" = "true" ]; then
       echo "Database is empty, initializing..."
-      
+
       # Create database if it doesn't exist
       PGPASSWORD="${DATABASE_PASSWORD}" createdb -h "${DATABASE_HOST}" -p "${DATABASE_PORT}" -U "${DATABASE_USER}" "${DATABASE_NAME}" 2>/dev/null || echo "Database already exists"
-      
+
       # Initialize Kasm schema and data
       echo "Initializing Kasm database schema..."
       # Note: In a real implementation, this would run the Kasm database initialization
@@ -43,18 +43,18 @@ data:
         );
         INSERT INTO kasm_init_status (initialized) VALUES (TRUE) ON CONFLICT DO NOTHING;
       "
-      
+
       echo "Database initialization completed"
     else
       echo "Database already initialized, skipping..."
     fi
-  
+
   wait-for-services.sh: |
     #!/bin/bash
     set -e
-    
+
     echo "Waiting for required services..."
-    
+
     # Wait for database
     echo "Checking database connectivity..."
     until nc -z "${DATABASE_HOST}" "${DATABASE_PORT}"; do
@@ -62,7 +62,7 @@ data:
       sleep 2
     done
     echo "Database is available"
-    
+
     # Wait for Redis
     echo "Checking Redis connectivity..."
     until nc -z "${REDIS_HOST}" "${REDIS_PORT}"; do
@@ -70,5 +70,5 @@ data:
       sleep 2
     done
     echo "Redis is available"
-    
+
     echo "All required services are ready"

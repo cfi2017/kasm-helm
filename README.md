@@ -1,211 +1,205 @@
-# Chart Testing
+# Kasm Helm Chart
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-[![Go Report Card](https://goreportcard.com/badge/github.com/helm/chart-testing)](https://goreportcard.com/report/github.com/helm/chart-testing)
-![ci](https://github.com/helm/chart-testing/workflows/ci/badge.svg)
+![Chart Testing](https://github.com/cfi2017/kasm-helm/workflows/Chart%20Testing/badge.svg)
 
-`ct` is the the tool for testing Helm charts.
-It is meant to be used for linting and testing pull requests.
-It automatically detects charts changed against the target branch.
+Production-ready Helm chart for deploying [Kasm Workspaces](https://kasmweb.com/) on Kubernetes. This chart follows Helm best practices and is designed for GitOps workflows with comprehensive testing and validation.
 
-## Installation
+## Features
+
+- 🏗️ **Production Architecture**: Complete Kasm deployment with API, Manager, Proxy, Guacamole, Redis, and PostgreSQL
+- 🗂️ **Sensible Organization**: Component-based folder structure with one document per file
+- 🗄️ **Flexible Database**: Support for both internal PostgreSQL and external databases
+- 🔐 **Advanced Certificates**: cert-manager integration and existing TLS secret support
+- 🚀 **GitOps Compatible**: No problematic hooks, fully declarative
+- 🧪 **Comprehensive Testing**: Automated chart testing with kind cluster integration
+- 📋 **Best Practices**: Security hardening, health checks, autoscaling support
+
+## Quick Start
 
 ### Prerequisites
 
-It is recommended to use the provided Docker image which can be [found on Quay](https://quay.io/helmpack/chart-testing/).
-It comes with all necessary tools installed.
+- Kubernetes 1.19+
+- Helm 3.8+
+- 4GB+ available memory for full deployment
 
-* [Helm](http://helm.sh)
-* [Git](https://git-scm.com) (2.17.0 or later)
-* [Yamllint](https://github.com/adrienverge/yamllint)
-* [Yamale](https://github.com/23andMe/Yamale)
-* [Kubectl](https://kubernetes.io/docs/reference/kubectl/overview/)
+### Install Chart
 
-### Binary Distribution
+```bash
+# Add repository (if published)
+helm repo add kasm https://cfi2017.github.io/kasm-helm
 
-Download the release distribution for your OS from the Releases page:
+# Install with default values
+helm install kasm kasm/kasm
 
-https://github.com/helm/chart-testing/releases
-
-Unpack the `ct` binary, add it to your PATH, and you are good to go!
-
-### Docker Image
-
-A Docker image is available at `quay.io/helmpack/chart-testing` with list of
-available tags [here](https://quay.io/repository/helmpack/chart-testing?tab=tags).
-
-### Homebrew
-
-```console
-$ brew install chart-testing
+# Or install from source
+git clone https://github.com/cfi2017/kasm-helm.git
+helm install kasm ./charts/kasm
 ```
 
-## Usage
+### Example Configurations
 
-See documentation for individual commands:
+**Minimal deployment:**
+```bash
+helm install kasm ./charts/kasm -f charts/kasm/values-minimal.yaml
+```
 
-* [ct](doc/ct.md)
-* [ct install](doc/ct_install.md)
-* [ct lint](doc/ct_lint.md)
-* [ct lint-and-install](doc/ct_lint-and-install.md)
-* [ct list-changed](doc/ct_list-changed.md)
-* [ct version](doc/ct_version.md)
+**External database with cert-manager:**
+```bash
+helm install kasm ./charts/kasm -f charts/kasm/values-external-db.yaml
+```
 
-For a more extensive how-to guide, please see:
+## Development
 
-* [charts-repo-actions-demo](https://github.com/helm/charts-repo-actions-demo)
+### Pre-commit Hooks Setup
 
-## Configuration
+This repository uses pre-commit hooks to ensure code quality and chart integrity. The hooks automatically run:
 
-`ct` is a command-line application.
-All command-line flags can also be set via environment variables or config file.
-Environment variables must be prefixed with `CT_`.
-Underscores must be used instead of hyphens.
+- Helm chart linting
+- YAML validation and formatting
+- Chart testing with ct (chart-testing)
+- Documentation generation with helm-docs
+- Template validation
 
-CLI flags, environment variables, and a config file can be mixed.
-The following order of precedence applies:
+#### Quick Setup
 
-1. CLI flags
-1. Environment variables
-1. Config file
+```bash
+# Run the setup script
+./setup-precommit.sh
+```
 
-Note that linting requires config file for [yamllint](https://github.com/adrienverge/yamllint) and [yamale](https://github.com/23andMe/Yamale).
-If not specified, these files are search in the current directory, the `.ct` directory in current directory, `$HOME/.ct`, and `/etc/ct`, in that order.
-Samples are provided in the [etc](etc) folder.
+#### Manual Setup
 
-### Examples
+```bash
+# Install pre-commit
+pip install pre-commit
 
-The following example show various way of configuring the same thing:
+# Install dependencies
+pip install yamale chart-testing
 
-#### CLI
+# Install hooks
+pre-commit install
+```
 
-#### Remote repo
+#### Available Commands
 
-With remote repo:
+```bash
+# Run all hooks on all files
+pre-commit run --all-files
 
-    ct install --remote upstream --chart-dirs stable,incubator --build-id pr-42
+# Run specific hooks
+pre-commit run helm-lint
+pre-commit run helm-docs
+pre-commit run yamllint
+pre-commit run helm-template-test
 
-#### Local repo
+# Skip hooks for a commit (not recommended)
+git commit --no-verify
 
-If you have a chart in current directory and ct installed on the host then you can run:
+# Alternative: Use Makefile commands
+make dev-check          # Quick development checks
+make lint               # All linting
+make test               # All testing
+make docs               # Generate documentation
+make validate           # Comprehensive validation
+```
 
-    ct install --chart-dirs . --charts .
+### Chart Structure
 
-With docker it works with:
+The chart follows a logical component-based organization:
 
-    docker run -it --network host --workdir=/data --volume ~/.kube/config:/root/.kube/config:ro --volume $(pwd):/data quay.io/helmpack/chart-testing:v3.7.1 ct install --chart-dirs . --charts .
+```
+charts/kasm/templates/
+├── _helpers.tpl                    # Template helpers
+├── serviceaccount.yaml            # Shared service account
+├── configmap.yaml                 # Shared configuration
+├── secrets.yaml                   # Shared tokens
+├── database/
+│   ├── service.yaml               # One document per file
+│   ├── statefulset.yaml
+│   └── secret.yaml               # Component-specific secrets
+├── redis/
+│   ├── service.yaml
+│   ├── deployment.yaml
+│   └── secret.yaml
+├── kasm-api/
+│   ├── service.yaml
+│   ├── deployment.yaml
+│   └── hpa.yaml
+├── networking/                    # Global networking
+│   ├── ingress.yaml
+│   └── certificates.yaml
+└── ... (similar pattern for all components)
+```
 
-Notice that `workdir` param is important and must be the same as volume mounted.
+### Testing
 
+```bash
+# Lint charts
+helm lint charts/kasm
 
-#### Environment Variables
+# Template generation test
+helm template test-release charts/kasm
 
-    export CT_REMOTE=upstream
-    export CT_CHART_DIRS=stable,incubator
-    export CT_BUILD_ID
+# Chart testing with ct
+ct lint --all --validate-maintainers=false
 
-    ct install
+# Integration testing (requires kind)
+ct install --all --validate-maintainers=false
+```
 
-#### Config File
+## Chart Configuration
 
-`config.yaml`:
+See the [chart documentation](charts/kasm/README.md) for detailed configuration options.
+
+### Database Options
 
 ```yaml
-remote: upstream
-chart-dirs:
-  - stable
-  - incubator
-build-id: pr-42
+# Internal PostgreSQL (default)
+database:
+  deploy: true
+  internal:
+    storageSize: "10Gi"
+
+# External database
+database:
+  deploy: false
+  external:
+    enabled: true
+    host: "postgres.example.com"
+    existingSecret: "kasm-db-secret"
 ```
 
-#### Config Usage
-
-    ct install --config config.yaml
-
-
-`ct` supports any format [Viper](https://github.com/spf13/viper) can read, i. e. JSON, TOML, YAML, HCL, and Java properties files.
-
-Notice that if no config file is specified, then `ct.yaml` (or any of the supported formats) is loaded from the current directory, `$HOME/.ct`, or `/etc/ct`, in that order, if found.
-
-
-#### Using private chart repositories
-
-When adding chart-repos you can specify additional arguments for the `helm repo add` command using `helm-repo-extra-args` on a per-repo basis.
-You can also specify OCI registries which will be added using the `helm registry login` command, they also support the `helm-repo-extra-args` for authentication.
-This could for example be used to authenticate a private chart repository.
-
-`config.yaml`:
+### Certificate Management
 
 ```yaml
-chart-repos:
-  - incubator=https://incubator.io
-  - basic-auth=https://private.com
-  - ssl-repo=https://self-signed.ca
-  - oci-registry=oci://nice-oci-registry.pt
-helm-repo-extra-args:
-  - ssl-repo=--ca-file ./my-ca.crt
+# cert-manager integration
+certificates:
+  certManager:
+    enabled: true
+    issuerName: "letsencrypt-prod"
+
+# Existing TLS secret
+certificates:
+  ingress:
+    existingSecret: "my-tls-cert"
 ```
 
-    ct install --config config.yaml --helm-repo-extra-args "basic-auth=--username user --password secret"
+## Contributing
 
-## Building from Source
+1. Fork the repository
+2. Create a feature branch
+3. Set up pre-commit hooks: ./setup-precommit.sh`
+4. Make your changes
+5. Ensure all hooks pass: `pre-commit run --all-files`
+6. Submit a pull request
 
-`ct` is built using Go 1.13 or higher.
+The GitHub Actions pipeline will automatically test your changes with:
+- Chart linting and validation
+- Template generation testing
+- Integration testing with kind cluster
+- Documentation validation
 
-`build.sh` is used to build and release the tool.
-It uses [Goreleaser](https://goreleaser.com/) under the covers.
+## License
 
-Note: on MacOS you will need `GNU Coreutils readlink`.
-You can install it with:
-
-```console
-brew install coreutils
-```
-
-Then add `gnubin` to your `$PATH`, with:
-
-```console
-echo 'export PATH="$(brew --prefix coreutils)/libexec/gnubin:$PATH"' >> ~/.bash_profile
-bash --login
-```
-
-To use the build script:
-
-```console
-$ ./build.sh -h
-Usage: build.sh <options>
-
-Build ct using Goreleaser.
-
-    -h, --help      Display help
-    -d, --debug     Display verbose output and run Goreleaser with --debug
-    -r, --release   Create a release using Goreleaser. This includes the creation
-                    of a GitHub release and building and pushing the Docker image.
-                    If this flag is not specified, Goreleaser is run with --snapshot
-```
-
-## Releasing
-
-### Prepare Release
-
-Before a release is created, versions have to be updated in the examples.
-A pull request needs to be created for this, which should be merged right before the release is cut.
-Here's a previous one for reference: https://github.com/helm/chart-testing/pull/89
-
-### Create Release
-
-The release workflow is [dispatched from github actions](https://github.com/helm/chart-testing/actions)
-Versions must start with a lower-case `v`, e. g. `v3.7.1`.
-
-## Supported versions
-
-The previous MAJOR version will be supported for three months after each new MAJOR release.
-
-Within this support window, pull requests for the previous MAJOR version should be made against the previous release branch.
-For example, if the current MAJOR version is `v2`, the pull request base branch should be `release-v1`.
-
-## Upgrading
-
-When upgrading from `< v2.0.0` you will also need to change the usage in your scripts.
-This is because, while the [v2.0.0](https://github.com/helm/chart-testing/releases/tag/v2.0.0) release has parity with `v1`, it was refactored from a bash library to Go so there are minor syntax differences.
-Compare [v1 usage](https://github.com/helm/chart-testing/tree/release-v1#usage) with this (`v2`) version's README [usage](#usage) section above.
+This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
