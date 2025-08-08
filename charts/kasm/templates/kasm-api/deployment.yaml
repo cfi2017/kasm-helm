@@ -49,16 +49,14 @@ spec:
                 echo "Base config /config/api.app.config.yaml missing" >&2
                 exit 1
               fi
-              # Perform targeted in-place substitutions on a copy.
-              # We only substitute the first occurrence of the placeholder patterns to avoid unintended replacements elsewhere.
-              sed "0,/password: \"\"/s//password: \"${DB_PASSWORD}\"/" /config/api.app.config.yaml \
-                | sed "0,/redis_password: \"\"/s//redis_password: \"${REDIS_PASSWORD}\"/" \
-                > /generated/api.app.config.yaml.tmp
-              mv /generated/api.app.config.yaml.tmp /generated/api.app.config.yaml
+              cp /config/api.app.config.yaml /generated/api.app.config.yaml
+              # Escape sed delimiter characters to avoid substitution errors.
+              ESCAPED_DB=$(printf '%s' "$DB_PASSWORD" | sed -e 's/[&/|]/\\&/g')
+              ESCAPED_REDIS=$(printf '%s' "$REDIS_PASSWORD" | sed -e 's/[&/|]/\\&/g')
+              sed -i "s|__DB_PASSWORD__|${ESCAPED_DB}|g" /generated/api.app.config.yaml
+              sed -i "s|__REDIS_PASSWORD__|${ESCAPED_REDIS}|g" /generated/api.app.config.yaml
               chmod 0444 /generated/api.app.config.yaml
-              echo "[generate-api-config] Final rendered config:" >&2
-              grep -E "password:|redis_password:" /generated/api.app.config.yaml || true
-              echo "[generate-api-config] Completed"
+              echo "[generate-api-config] Completed substitutions"
           volumeMounts:
             - name: api-config
               mountPath: /config
