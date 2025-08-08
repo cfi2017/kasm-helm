@@ -56,18 +56,18 @@ data:
     : "${DEFAULT_ADMIN_PASSWORD:?missing}"
     : "${DEFAULT_USER_PASSWORD:?missing}"
 
-    /usr/bin/yq_$(uname -m) -i   '(.settings.[] | select(.name=="token") | select(.category == "manager")) .value = env.DEFAULT_MANAGER_TOKEN' "$SEED_FILE"
-    /usr/bin/yq_$(uname -m) -i   '(.settings.[] | select(.name=="registration_token") | select(.category == "auth")) .value = env.DEFAULT_REGISTRATION_TOKEN' "$SEED_FILE"
+    /usr/bin/yq_$(uname -m) -i   '(.settings.[] | select(.name=="token") | select(.category == "manager")) .value = env(DEFAULT_MANAGER_TOKEN)' "$SEED_FILE"
+    /usr/bin/yq_$(uname -m) -i   '(.settings.[] | select(.name=="registration_token") | select(.category == "auth")) .value = env(DEFAULT_REGISTRATION_TOKEN)' "$SEED_FILE"
 
     ADMIN_SALT=$(cat /proc/sys/kernel/random/uuid)
     ADMIN_HASH=$(printf "%s" "${DEFAULT_ADMIN_PASSWORD}${ADMIN_SALT}" | sha256sum | cut -c-64)
-    /usr/bin/yq_$(uname -m) -i  '(.users.[] | select(.username=="admin@kasm.local") | .salt) = strenv(ADMIN_SALT)'  "$SEED_FILE"
-    /usr/bin/yq_$(uname -m) -i  '(.users.[] | select(.username=="admin@kasm.local") | .pw_hash) = strenv(ADMIN_HASH)' "$SEED_FILE"
+    /usr/bin/yq_$(uname -m) -i  '(.users.[] | select(.username=="admin@kasm.local") | .salt) = env(ADMIN_SALT)'  "$SEED_FILE"
+    /usr/bin/yq_$(uname -m) -i  '(.users.[] | select(.username=="admin@kasm.local") | .pw_hash) = env(ADMIN_HASH)' "$SEED_FILE"
 
     USER_SALT=$(cat /proc/sys/kernel/random/uuid)
     USER_HASH=$(printf "%s" "${DEFAULT_USER_PASSWORD}${USER_SALT}" | sha256sum | cut -c-64)
-    /usr/bin/yq_$(uname -m) -i  '(.users.[] | select(.username=="user@kasm.local") | .salt) = strenv(USER_SALT)'  "$SEED_FILE"
-    /usr/bin/yq_$(uname -m) -i  '(.users.[] | select(.username=="user@kasm.local") | .pw_hash) = strenv(USER_HASH)' "$SEED_FILE"
+    /usr/bin/yq_$(uname -m) -i  '(.users.[] | select(.username=="user@kasm.local") | .salt) = env(USER_SALT)'  "$SEED_FILE"
+    /usr/bin/yq_$(uname -m) -i  '(.users.[] | select(.username=="user@kasm.local") | .pw_hash) = env(USER_HASH)' "$SEED_FILE"
 
     echo "[db-init] Seeding database via application initialize command"
     python3 /src/api_server/server.pyc --initialize-database --cfg /opt/kasm/current/conf/app/api/api.app.config.yaml --populate-production --seed-file "$SEED_FILE"
